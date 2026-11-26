@@ -10,6 +10,8 @@
  * anything in browser storage can be read by a script injected into the page.
  */
 
+import { reportApiUnreachable } from './telemetry'
+
 export const DIRECTORY_URL =
   (import.meta.env.VITE_DIRECTORY_URL as string | undefined) ?? 'http://localhost:5090'
 
@@ -75,6 +77,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
       body: JSON.stringify(body),
     })
   } catch {
+    reportApiUnreachable('directory-api', path)   // the path only: the body holds the password
     throw new AuthError('unreachable', `Can't reach the directory at ${DIRECTORY_URL}. Is CorpDirectory.Api running?`)
   }
   const text = await response.text()
