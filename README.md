@@ -133,9 +133,19 @@ The committed `appsettings.json` files contain only password-free defaults (Wind
 ### 2. Run the tests
 
 ```powershell
-cd src
-dotnet test
+dotnet test src                       # everything (the integration tests need Docker running)
+dotnet test src/SyncHub.Tests         # unit tests only: fast, no Docker
 ```
+
+| Project | What it proves | Needs |
+|---|---|---|
+| `SyncHub.Tests` | Mapping and validation, UK time conversion, name normalisation, duplicate matching | Nothing |
+| `SyncHub.IntegrationTests` | **Security:** invalid tokens are rejected (expired, wrong issuer, wrong audience, wrong key); each role can do only what it should; the audit trail records the user from the token, never from the request body. **Database:** merges are idempotent; a stale replay can't overwrite newer data; a scheduled read wins across the October clock change; reconciliation counts an ignored-then-failed record once. | Docker |
+
+The integration tests start a throwaway SQL Server container (Testcontainers) with the real schema and stored
+procedures, and host the real Support API in memory (`WebApplicationFactory`). Only the token signing key is
+swapped for a test key, so every other part of token validation runs exactly as in production. The first run
+takes about 20 seconds while SQL Server starts.
 
 ### 3. Start everything
 
