@@ -20,7 +20,17 @@ public sealed class SyncOptions
 
     public int ReportingRefreshMinutes { get; set; } = 5;
 
-    public int StagingRetentionDays { get; set; } = 7;
+    /// <summary>
+    /// Days of staging rows to keep. Staging is the largest table (every look-back re-stages rows), and
+    /// replays read dead-letter payloads rather than staging, so two days is plenty for auditing a recent run.
+    /// </summary>
+    public int StagingRetentionDays { get; set; } = 2;
+
+    /// <summary>Days of successful sync runs to keep in ops.SyncRun. Must be longer than StagingRetentionDays.</summary>
+    public int RunHistorySucceededDays { get; set; } = 90;
+
+    /// <summary>Days of failed and SucceededWithErrors runs to keep: they're what investigations look back at.</summary>
+    public int RunHistoryOtherDays { get; set; } = 365;
 
     /// <summary>How often the SQL health snapshot behind the dead-letter and reconciliation gauges is read.</summary>
     public int HealthSnapshotMinutes { get; set; } = 2;

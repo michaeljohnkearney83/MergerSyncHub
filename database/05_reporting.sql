@@ -40,23 +40,7 @@ CREATE TABLE rpt.DimDate
     IsWeekend      bit          NOT NULL
 );
 
-;WITH n AS (
-    SELECT TOP (DATEDIFF(DAY, '20100101', '20301231') + 1)
-           ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) - 1 AS i
-    FROM sys.all_objects a CROSS JOIN sys.all_objects b
-), d AS (
-    SELECT DATEADD(DAY, i, CAST('20100101' AS date)) AS dt FROM n
-)
-INSERT rpt.DimDate
-SELECT YEAR(dt) * 10000 + MONTH(dt) * 100 + DAY(dt),
-       dt, YEAR(dt), DATEPART(QUARTER, dt), MONTH(dt),
-       LEFT(DATENAME(MONTH, dt), 10),
-       CONVERT(char(7), dt, 126),
-       CASE WHEN MONTH(dt) >= 4
-            THEN CONCAT('FY', YEAR(dt), '/', RIGHT(YEAR(dt) + 1, 2))
-            ELSE CONCAT('FY', YEAR(dt) - 1, '/', RIGHT(YEAR(dt), 2)) END,
-       CASE WHEN (DATEDIFF(DAY, '19000101', dt) % 7) IN (5, 6) THEN 1 ELSE 0 END   -- 1900-01-01 was a Monday
-FROM d;
+-- Filled by rpt.usp_ExtendDimDate (below), which also keeps it rolling forward on every reporting load.
 
 CREATE TABLE rpt.DimFirm
 (
@@ -140,11 +124,50 @@ GO
 /* ===========================================================================
    Load
 =========================================================================== */
+/* Rolling calendar. DimDate starts on 1 Jan 2010 and is kept @YearsAhead years ahead of today,
+   to 31 December. rpt.usp_LoadReporting calls this every run, so the calendar never runs out
+   (it used to stop at a fixed 31 Dec 2030; after that, matters would have had no date in Power BI).
+   Only missing days are added, so it is cheap to call repeatedly. @Through overrides the end date (tests). */
+CREATE OR ALTER PROCEDURE rpt.usp_ExtendDimDate
+    @YearsAhead int  = 2,
+    @Through    date = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SET @Through = ISNULL(@Through, DATEFROMPARTS(YEAR(SYSUTCDATETIME()) + @YearsAhead, 12, 31));
+    DECLARE @From date = ISNULL(DATEADD(DAY, 1, (SELECT MAX([Date]) FROM rpt.DimDate)), '20100101');
+    IF @From > @Through RETURN;
+
+    WITH n AS (
+        SELECT TOP (DATEDIFF(DAY, @From, @Through) + 1)
+               ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) - 1 AS i
+          FROM sys.all_objects a CROSS JOIN sys.all_objects b
+    ), d AS (
+        SELECT DATEADD(DAY, i, @From) AS dt FROM n
+    )
+    INSERT rpt.DimDate (DateKey, [Date], [Year], [Quarter], [Month], MonthName, YearMonth, FinancialYear, IsWeekend)
+    SELECT YEAR(dt) * 10000 + MONTH(dt) * 100 + DAY(dt),
+           dt, YEAR(dt), DATEPART(QUARTER, dt), MONTH(dt),
+           LEFT(DATENAME(MONTH, dt), 10),
+           CONVERT(char(7), dt, 126),
+           CASE WHEN MONTH(dt) >= 4
+                THEN CONCAT('FY', YEAR(dt), '/', RIGHT(YEAR(dt) + 1, 2))
+                ELSE CONCAT('FY', YEAR(dt) - 1, '/', RIGHT(YEAR(dt), 2)) END,
+           CASE WHEN (DATEDIFF(DAY, '19000101', dt) % 7) IN (5, 6) THEN 1 ELSE 0 END   -- 1900-01-01 was a Monday
+      FROM d;
+END;
+GO
+EXEC rpt.usp_ExtendDimDate;
+GO
+
 CREATE OR ALTER PROCEDURE rpt.usp_LoadReporting
 AS
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
+
+    /* 0. Keep the calendar ahead of today (adds nothing on most runs). */
+    EXEC rpt.usp_ExtendDimDate;
 
     /* 1. Group confirmed duplicates into one "master" client.
           Label propagation: every client starts with its own id as label, and

@@ -15,10 +15,10 @@ namespace SyncHub.IntegrationTests;
 /// </summary>
 public sealed class SqlServerFixture : IAsyncLifetime
 {
-    // Only the scripts the tests need. 02 (75k Firm A rows), 05 (reporting) and 06 (directory)
-    // add start-up time without being exercised here.
+    // Only the scripts the tests need. 02 (75k Firm A rows) and 06 (directory) add start-up time
+    // without being exercised here.
     private static readonly string[] Scripts =
-        ["01_create_databases.sql", "03_synchub_schema.sql", "04_synchub_procedures.sql"];
+        ["01_create_databases.sql", "03_synchub_schema.sql", "04_synchub_procedures.sql", "05_reporting.sql"];
 
     // Same image as docker-compose.yml, so the tests run on the SQL Server version the app uses.
     private readonly MsSqlContainer _container =

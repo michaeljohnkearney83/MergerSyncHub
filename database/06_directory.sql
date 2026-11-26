@@ -17,6 +17,9 @@
 IF DB_ID(N'CorpDirectory') IS NULL
     CREATE DATABASE CorpDirectory;
 GO
+-- SIMPLE recovery for the demo; see 01_create_databases.sql for why, and what production does instead.
+ALTER DATABASE CorpDirectory SET RECOVERY SIMPLE;
+GO
 USE CorpDirectory;
 GO
 SET QUOTED_IDENTIFIER ON;

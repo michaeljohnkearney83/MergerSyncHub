@@ -472,3 +472,44 @@ BEGIN
     END;
 END;
 GO
+
+/* Housekeeping: run history. One run per source per minute is ~400,000 rows a year in ops.SyncRun
+   (plus two ops.SyncRunEntity rows each), so it needs a lifetime too.
+     * Successful runs are kept @KeepSucceededDays (90): enough for trends and "when did this start?".
+     * Failed and SucceededWithErrors runs are kept @KeepOtherDays (365): they're what an
+       investigation looks back at, and there are far fewer of them.
+     * Running runs are never purged: a run stuck at Running is what the SyncRunStuck alert reports.
+   Run history must outlive staging, because usp_PurgeStaging finds its cut-off from ops.SyncRun;
+   the worker enforces that (RunHistorySucceededDays > StagingRetentionDays). Dead letters keep
+   their run ids as plain numbers (no foreign key), so they are unaffected. */
+CREATE OR ALTER PROCEDURE ops.usp_PurgeRunHistory
+    @KeepSucceededDays int = 90,
+    @KeepOtherDays     int = 365
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @SucceededCutoff datetime2(3) = DATEADD(DAY, -@KeepSucceededDays, SYSUTCDATETIME());
+    DECLARE @OtherCutoff     datetime2(3) = DATEADD(DAY, -@KeepOtherDays, SYSUTCDATETIME());
+
+    CREATE TABLE #expired (SyncRunId bigint NOT NULL PRIMARY KEY);
+    INSERT #expired (SyncRunId)
+    SELECT r.SyncRunId
+      FROM ops.SyncRun r
+     WHERE (r.Status = 'Succeeded' AND r.StartedAtUtc < @SucceededCutoff)
+        OR (r.Status IN ('SucceededWithErrors', 'Failed') AND r.StartedAtUtc < @OtherCutoff);
+
+    -- Children first (FK_SyncRunEntity_Run), in chunks to keep the log and locks small
+    WHILE 1 = 1
+    BEGIN
+        DELETE TOP (5000) e FROM ops.SyncRunEntity e JOIN #expired x ON x.SyncRunId = e.SyncRunId;
+        IF @@ROWCOUNT = 0 BREAK;
+    END;
+    WHILE 1 = 1
+    BEGIN
+        DELETE TOP (5000) r FROM ops.SyncRun r JOIN #expired x ON x.SyncRunId = r.SyncRunId;
+        IF @@ROWCOUNT = 0 BREAK;
+    END;
+
+    SELECT RunsPurged = COUNT(*) FROM #expired;
+END;
+GO

@@ -127,6 +127,11 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
 - **README navigation:** the Contents menu links to headings by GitHub's generated anchors (lower case, punctuation
   dropped, spaces to hyphens: `### 3. Start everything` is `#3-start-everything`). Renaming or adding a heading means
   updating the menu. New domain or support terms go in `docs/glossary.md`; the README's Key terms stays at about seven.
+- **Data lifetimes:** anything operational that grows needs a purge (chunked deletes, daily in `HousekeepingService`);
+  run history must outlive staging (the staging purge finds its cut-off from `ops.SyncRun`). `core.*` is never purged
+  automatically: law-firm records follow a retention policy, not IT. Databases use SIMPLE recovery (set in 01/06);
+  production would use FULL with log backups. `rpt.DimDate` is rolling (`rpt.usp_ExtendDimDate`, called by every load):
+  don't reintroduce a fixed end date.
 - **UK English** in UI text and docs. Keep comments that explain trade-offs.
 
 ## Reporting
