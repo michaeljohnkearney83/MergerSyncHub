@@ -16,6 +16,27 @@
 #   Grafana reads both, with the data sources and the dashboard provisioned from ./monitoring.
 #
 # Host ports are offset (14317/14318, 3033) because 4317/4318/3000 are often taken by other stacks.
+#
+# The application itself (four .NET services, two React apps and a one-off database setup) is in
+# the "app" profile, built from docker/dotnet.Dockerfile and docker/web.Dockerfile:
+#   docker compose --profile app --profile monitoring up -d --build
+# It publishes the same host ports as `dotnet run` / `npm run dev`, so stop those first.
+# Day-to-day development stays outside Docker (faster edit-run loop); see README step 3.
+
+# Settings shared by the .NET services. Connection strings use the "sql" service name and the
+# container port; the sa login is fine for a local demo (a real deployment gets one login per app).
+x-dotnet: &dotnet
+  restart: unless-stopped
+  profiles: ["app"]
+  depends_on:
+    db-init:
+      condition: service_completed_successfully
+
+x-otel: &otel
+  # Telemetry goes to the collector if the monitoring profile is running; if it isn't, the exporter
+  # gives up quietly and the services carry on.
+  OpenTelemetry__OtlpEndpoint: "http://otel-collector:4317"
+
 services:
   sql:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -28,6 +49,135 @@ services:
       - "14333:1433"
     volumes:
       - synchub-sql:/var/opt/mssql
+    healthcheck:
+      # db-init and the services wait for this rather than racing SQL Server's start-up.
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  # ---------------------------------------------------------------- application ("app" profile)
+
+  db-init:
+    # Same image as SQL Server: it already contains sqlcmd, so there's no extra image to pull.
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    profiles: ["app"]
+    entrypoint: ["/bin/bash", "/db-init.sh"]
+    environment:
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
+    volumes:
+      - ./database:/scripts:ro
+      - ./docker/db-init.sh:/db-init.sh:ro
+    depends_on:
+      sql:
+        condition: service_healthy
+
+  directory:
+    <<: *dotnet
+    build:
+      context: .
+      dockerfile: docker/dotnet.Dockerfile
+      args: { PROJECT: CorpDirectory.Api }
+    image: synchub/corp-directory
+    container_name: synchub-directory
+    environment:
+      <<: *otel
+      ConnectionStrings__Directory: "Server=sql,1433;Database=CorpDirectory;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Application Name=CorpDirectory.Api"
+      # Tokens name the address the browser uses, not the container name.
+      Directory__Issuer: "http://localhost:5090"
+      Directory__SigningKeyPath: "/keys/signing-key.pem"
+    volumes:
+      - synchub-directory-keys:/keys      # keep the signing key, or every restart signs everyone out
+    ports:
+      - "5090:8080"
+
+  firmb:
+    <<: *dotnet
+    build:
+      context: .
+      dockerfile: docker/dotnet.Dockerfile
+      args: { PROJECT: FirmB.MockApi }
+    image: synchub/firmb-mock
+    container_name: synchub-firmb
+    depends_on: {}
+    environment:
+      <<: *otel
+    ports:
+      - "5070:8080"
+
+  worker:
+    <<: *dotnet
+    build:
+      context: .
+      dockerfile: docker/dotnet.Dockerfile
+      args:
+        PROJECT: SyncHub.Worker
+        RUNTIME_IMAGE: mcr.microsoft.com/dotnet/runtime:10.0
+    image: synchub/worker
+    container_name: synchub-worker
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      firmb:
+        condition: service_started
+    environment:
+      <<: *otel
+      ConnectionStrings__SyncHub: "Server=sql,1433;Database=SyncHub;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Application Name=SyncHub.Worker"
+      ConnectionStrings__FirmA: "Server=sql,1433;Database=FirmA_Legacy;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;ApplicationIntent=ReadOnly;Application Name=SyncHub.Worker"
+      FirmB__BaseUrl: "http://firmb:8080/"
+
+  support-api:
+    <<: *dotnet
+    build:
+      context: .
+      dockerfile: docker/dotnet.Dockerfile
+      args: { PROJECT: SyncHub.SupportApi }
+    image: synchub/support-api
+    container_name: synchub-support-api
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      directory:
+        condition: service_started
+    environment:
+      <<: *otel
+      ConnectionStrings__SyncHub: "Server=sql,1433;Database=SyncHub;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Application Name=SyncHub.SupportApi"
+      # Accept tokens issued as http://localhost:5090 (what the browser signed in to), but fetch the
+      # signing keys from the directory's container address: inside Docker, localhost is this container.
+      Auth__Authority: "http://localhost:5090"
+      Auth__MetadataAddress: "http://directory:8080/.well-known/openid-configuration"
+    ports:
+      - "5081:8080"
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        APP: dashboard
+        VITE_API_URL: "http://localhost:5081"
+        VITE_DIRECTORY_URL: "http://localhost:5090"
+    image: synchub/dashboard
+    container_name: synchub-dashboard
+    profiles: ["app"]
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+
+  directory-admin:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+      args:
+        APP: directory-admin
+        VITE_DIRECTORY_URL: "http://localhost:5090"
+    image: synchub/directory-admin
+    container_name: synchub-directory-admin
+    profiles: ["app"]
+    restart: unless-stopped
+    ports:
+      - "5174:80"
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.130.0
@@ -90,6 +240,7 @@ services:
 
 volumes:
   synchub-sql:
+  synchub-directory-keys:
   synchub-prometheus:
   synchub-loki:
   synchub-grafana:
