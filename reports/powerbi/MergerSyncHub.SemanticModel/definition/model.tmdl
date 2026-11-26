@@ -1,0 +1,30 @@
+/// Merger Sync Hub: combined client and matter register for the merged firm, built on the rpt star schema in SyncHub.
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	discourageImplicitMeasures
+	sourceQueryCulture: en-GB
+	valueFilterBehavior: independent
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation __PBI_TimeIntelligenceEnabled = 0
+
+annotation PBI_ProTooling = ["MCP-PBIModeling"]
+
+annotation PBI_QueryOrder = ["DimDate","DimFirm","DimPracticeArea","DimClient","FactMatter","FactDataQualityDaily","UserFirmAccess","SqlServer","SqlDatabase"]
+
+ref table DimDate
+ref table DimFirm
+ref table DimPracticeArea
+ref table DimClient
+ref table FactMatter
+ref table FactDataQualityDaily
+ref table UserFirmAccess
+ref table _Measures
+
+ref role FirmAccess
+
+ref cultureInfo en-US
+

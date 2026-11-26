@@ -1,0 +1,6 @@
+# Power BI Desktop's local files: per-machine settings and the data cache (it holds client data).
+**/.pbi/localSettings.json
+**/.pbi/cache.abf
+# A .pbix is a binary copy of the same model with the data inside. The .pbip project is the
+# source of truth: it stores the model as text (TMDL), so changes can be reviewed in a diff.
+*.pbix

@@ -1,0 +1,26 @@
+/// Firm-wide practice areas after mapping; 'Unmapped' marks codes the data stewards haven't mapped yet.
+table DimPracticeArea
+	lineageTag: b09b8f70-94c2-4c77-adb7-776789cb8c99
+
+	column PracticeAreaKey
+		dataType: int64
+		isHidden
+		lineageTag: 01946bda-f354-46b4-a777-de50de0f8def
+		summarizeBy: none
+		sourceColumn: PracticeAreaKey
+
+	column PracticeArea
+		dataType: string
+		lineageTag: 6cb87b66-8861-4941-9a68-80a15c08aadd
+		summarizeBy: none
+		sourceColumn: PracticeArea
+
+	partition DimPracticeArea = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    Data = Source{[Schema = "rpt", Item = "DimPracticeArea"]}[Data]
+				in
+				    Data
+

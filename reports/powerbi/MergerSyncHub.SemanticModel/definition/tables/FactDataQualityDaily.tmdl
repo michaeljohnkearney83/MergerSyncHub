@@ -1,0 +1,63 @@
+/// Daily data-quality snapshot per firm. A snapshot: take the latest day, never sum across days.
+table FactDataQualityDaily
+	lineageTag: 9f721e93-6ce6-4728-94bd-a9313b22f742
+
+	column SnapshotDate
+		dataType: dateTime
+		formatString: dd/mm/yyyy
+		lineageTag: ada7a3ef-7cda-40a2-bb20-9236a1e01fa6
+		summarizeBy: none
+		sourceColumn: SnapshotDate
+
+	column FirmKey
+		dataType: int64
+		isHidden
+		lineageTag: 351453ba-9ed9-493c-877a-7402acb8e85d
+		summarizeBy: none
+		sourceColumn: FirmKey
+
+	column TotalClients
+		dataType: int64
+		lineageTag: 27258fc1-7f9c-4e0c-96c0-1e391b3cd766
+		summarizeBy: none
+		sourceColumn: TotalClients
+
+	column TotalMatters
+		dataType: int64
+		lineageTag: 2be78b52-6ce2-4677-b5ef-277d4054655f
+		summarizeBy: none
+		sourceColumn: TotalMatters
+
+	column OpenExceptions
+		dataType: int64
+		lineageTag: bac9d03d-c3f2-4171-b2d6-1fad6257c50c
+		summarizeBy: none
+		sourceColumn: OpenExceptions
+
+	column PendingDuplicateReviews
+		dataType: int64
+		lineageTag: fe6ea3e6-d567-44a3-82cc-d4da224bec83
+		summarizeBy: none
+		sourceColumn: PendingDuplicateReviews
+
+	column ConfirmedDuplicates
+		dataType: int64
+		lineageTag: b53839d3-58ae-4642-90f5-7c2ff2fca7ac
+		summarizeBy: none
+		sourceColumn: ConfirmedDuplicates
+
+	column UnmappedMatters
+		dataType: int64
+		lineageTag: 4d8b4c2b-9aeb-43e0-bc46-46c66106187a
+		summarizeBy: none
+		sourceColumn: UnmappedMatters
+
+	partition FactDataQualityDaily = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    Data = Source{[Schema = "rpt", Item = "FactDataQualityDaily"]}[Data]
+				in
+				    Data
+

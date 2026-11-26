@@ -16,7 +16,7 @@ keep the "why" comments.
 
 | Path | Purpose |
 |---|---|
-| `database/` | Numbered SQL scripts 01–06, `setup.ps1`, `perf/` indexing demo, `demo/` change simulator |
+| `database/` | Numbered SQL scripts 01–07 (07: read-only reporting login), `setup.ps1`, `perf/` indexing demo, `demo/` change simulator |
 | `src/Libraries/SyncHub.Core` | Pure logic, no I/O: models, mappers, validation, name normalisation, duplicate matching |
 | `src/Services/SyncHub.Worker` | .NET BackgroundService: incremental sync → SqlBulkCopy staging → set-based MERGE |
 | `src/Services/SyncHub.SupportApi` | Minimal API behind the dashboard; JWT bearer auth with role policies |
@@ -27,7 +27,8 @@ keep the "why" comments.
 | `tests/SyncHub.IntegrationTests` | Needs Docker: Support API in memory (`WebApplicationFactory`, test-signed JWTs) + real procs in a Testcontainers SQL Server |
 | `dashboard/` | React + TS (Vite) support dashboard, port 5173 |
 | `directory-admin/` | React + TS (Vite) directory admin centre, port 5174 |
-| `reports/` | SSRS and Power BI build guides, `measures.dax` |
+| `reports/powerbi/` | Power BI project `MergerSyncHub.pbip`: model as TMDL (`MergerSyncHub.SemanticModel/definition/`), 17 measures, `FirmAccess` RLS |
+| `reports/ssrs/` | SSRS build guide (exceptions and sync-run reports) |
 | `docker/` | `dotnet.Dockerfile` (all four services, `PROJECT` build arg), `web.Dockerfile` (both React apps), `nginx.conf`, `db-init.sh` |
 | `monitoring/` | Collector, Prometheus (+ `alert-rules.yml`), Loki, Alloy (`alloy.alloy`, Faro receiver), Grafana provisioning and `dashboards/synchub.json` |
 | `docs/interview-guide.md` | Maps the project to interview questions; STAR answers |
@@ -128,6 +129,17 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
   updating the menu. New domain or support terms go in `docs/glossary.md`; the README's Key terms stays at about seven.
 - **UK English** in UI text and docs. Keep comments that explain trade-offs.
 
+## Reporting
+
+- Power BI and SSRS connect as **`synchub_reporting`** (`database/07_reporting_login.sql`): SELECT on `rpt`, EXECUTE on
+  `rpt.usp_SsrsExceptions` / `usp_SsrsSyncRunSummary` only. Its password is `REPORTING_SQL_PASSWORD` in `.env`, passed
+  to sqlcmd as a variable by `setup.ps1` and `db-init`; it never appears in the repo or in the Power BI files.
+- The Power BI model's source of truth is the **TMDL** under `reports/powerbi/MergerSyncHub.SemanticModel/definition/`.
+  `.pbi/cache.abf` (data) and `.pbi/localSettings.json` and any `.pbix` are git-ignored. Edit the model in Desktop
+  (with the `.pbip` open, Ctrl+S) or with the Power BI modelling MCP; close Desktop before editing TMDL by hand.
+- Ctrl+S saves whichever file is open: saving while a `.pbix` is open does not update the `.pbip`.
+- Check measure changes against SQL with the reporting login, as was done for every headline figure.
+
 ## Gotchas already hit
 
 - `Login failed for user '...\Guest'` → something is using Windows auth against a Docker SQL Server
@@ -150,7 +162,8 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
 - Monitoring was verified end to end on 2026-11-26: all four services report to Prometheus and Loki, and every
   dashboard query runs. Panels for rejections, step failures and Polly retries stay empty until one happens.
   The OTLP exporter's own calls show up as HttpClient metrics to port 14317; Firm B panels filter on port 5070.
-- Reports: SSRS and Power BI are build guides only (no .rdl/.pbix committed yet).
+- Reports: the Power BI semantic model is built and verified against SQL (26 Nov 2026); its report pages are a
+  hand-built step (guide section 4). SSRS is still a build guide (no .rdl yet).
 
 ## Git workflow
 

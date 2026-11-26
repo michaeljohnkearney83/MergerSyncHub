@@ -1,0 +1,38 @@
+/// The two legacy firms. Row-level security filters this table.
+table DimFirm
+	lineageTag: e0fdda6f-ac9c-498c-a885-2beff2095d21
+
+	column FirmKey
+		dataType: int64
+		isHidden
+		lineageTag: 270e7f33-f60e-4384-abd3-656407f62861
+		summarizeBy: none
+		sourceColumn: FirmKey
+
+	column Source
+		dataType: string
+		lineageTag: bc4fff30-f4e4-4743-96bc-a526f7e9ee70
+		summarizeBy: none
+		sourceColumn: Source
+
+	column FirmName
+		dataType: string
+		lineageTag: 184d80c5-710c-4504-b79f-e81b71f98d5a
+		summarizeBy: none
+		sourceColumn: FirmName
+
+	column Region
+		dataType: string
+		lineageTag: 55fba551-f727-49b0-a8b3-af3658c698ea
+		summarizeBy: none
+		sourceColumn: Region
+
+	partition DimFirm = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    Data = Source{[Schema = "rpt", Item = "DimFirm"]}[Data]
+				in
+				    Data
+

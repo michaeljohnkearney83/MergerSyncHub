@@ -1,0 +1,73 @@
+/// Calendar 2010-2030 with UK financial year (April to March).
+table DimDate
+	lineageTag: e2533822-ba49-4f99-af5c-7e65acefcdb5
+	dataCategory: Time
+
+	column DateKey
+		dataType: int64
+		isHidden
+		lineageTag: 50aeb1c0-b0e5-4801-805c-8081a28e3a4e
+		summarizeBy: none
+		sourceColumn: DateKey
+
+	column Date
+		dataType: dateTime
+		isUnique
+		formatString: dd/mm/yyyy
+		lineageTag: 3b3bcc75-1f29-486c-ae56-204a5da0177c
+		summarizeBy: none
+		sourceColumn: Date
+
+	column Year
+		dataType: int64
+		lineageTag: c19c6a94-d866-4928-84d5-606179f9ef85
+		summarizeBy: none
+		sourceColumn: Year
+
+	column Quarter
+		dataType: int64
+		lineageTag: 143735ed-832b-42ea-9aa0-11347fdc84f8
+		summarizeBy: none
+		sourceColumn: Quarter
+
+	column Month
+		dataType: int64
+		isHidden
+		lineageTag: cb376c33-d2de-4bad-ab72-08ae37fb6842
+		summarizeBy: none
+		sourceColumn: Month
+
+	column MonthName
+		dataType: string
+		lineageTag: dfdc22a5-3a05-45b8-bf67-578300678eb5
+		summarizeBy: none
+		sourceColumn: MonthName
+		sortByColumn: Month
+
+	column YearMonth
+		dataType: string
+		lineageTag: c785a66c-29cd-437f-bf98-4dcafb3f5496
+		summarizeBy: none
+		sourceColumn: YearMonth
+
+	column FinancialYear
+		dataType: string
+		lineageTag: ace73f1e-3109-49f4-980a-8f1d84fbd9a1
+		summarizeBy: none
+		sourceColumn: FinancialYear
+
+	column IsWeekend
+		dataType: boolean
+		lineageTag: 25f3291f-93db-4fde-b396-e8c2897c87d5
+		summarizeBy: none
+		sourceColumn: IsWeekend
+
+	partition DimDate = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    Data = Source{[Schema = "rpt", Item = "DimDate"]}[Data]
+				in
+				    Data
+

@@ -1,0 +1,25 @@
+relationship Matter_OpenedDate
+	fromColumn: FactMatter.OpenedDateKey
+	toColumn: DimDate.DateKey
+
+relationship Matter_ClosedDate
+	isActive: false
+	fromColumn: FactMatter.ClosedDateKey
+	toColumn: DimDate.DateKey
+
+relationship Matter_Client
+	fromColumn: FactMatter.ClientKey
+	toColumn: DimClient.ClientKey
+
+relationship Matter_Firm
+	fromColumn: FactMatter.FirmKey
+	toColumn: DimFirm.FirmKey
+
+relationship Matter_PracticeArea
+	fromColumn: FactMatter.PracticeAreaKey
+	toColumn: DimPracticeArea.PracticeAreaKey
+
+relationship DataQuality_Firm
+	fromColumn: FactDataQualityDaily.FirmKey
+	toColumn: DimFirm.FirmKey
+

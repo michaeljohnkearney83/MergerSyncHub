@@ -21,7 +21,7 @@ Opening line, if asked what you've been doing to prepare:
 | SQL Server and T-SQL performance | `04_synchub_procedures.sql`, `database/perf` | Set-based MERGE, SqlBulkCopy, TVPs, covering index for the extract |
 | Third-line support | Dashboard Exceptions tab, correlation ids | Find the failing record, see why, fix the data, replay, all audited |
 | Data fixes and migrations | Payload edit and replay, Mappings tab | Data fixes without touching production tables by hand |
-| SSRS / Power BI | `reports/` | Paginated exceptions report; star schema, DAX, row-level security |
+| SSRS / Power BI | `reports/` | Paginated exceptions report; Power BI project with star schema, DAX, row-level security, least-privilege reporting login |
 | React | `dashboard/` | TypeScript, typed API client, polling, simple components |
 | Security and access | `CorpDirectory.Api`, `directory-admin/`, Support API policies | Signed tokens, roles from groups, joiner/leaver process, lockout, audit |
 | Law-firm awareness | Duplicate detection, RLS notes | Shared clients across both firms means conflicts; ethical walls |
