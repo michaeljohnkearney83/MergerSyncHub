@@ -6,8 +6,9 @@
       * Merges are set-based (MERGE from a de-duplicated staging set), not row by row.
       * Merges are idempotent: re-running the same batch changes nothing, because
         updates only happen when the row hash differs. That makes retries safe.
-      * An older version of a record never overwrites a newer one
-        (SourceModifiedUtc check), which matters when replaying old failures.
+      * A replayed (possibly stale) payload never overwrites a newer version
+        (SourceModifiedUtc check, @IsReplay = 1). Scheduled reads skip the check:
+        they are the source's current state, and local-time stamps aren't reliable.
       * Failures go to ops.DeadLetter with the raw payload, and resolve themselves
         automatically when the record later merges successfully.
 */
@@ -139,7 +140,13 @@ GO
    Merge: clients
 =========================================================================== */
 CREATE OR ALTER PROCEDURE core.usp_MergeClients
-    @SyncRunId bigint
+    @SyncRunId bigint,
+    -- Newer-wins applies to replays only. A scheduled read returns the source's current state,
+    -- so it should always win. Comparing timestamps there is unsafe: Firm A stamps UK local time,
+    -- and when the clocks go back a genuine later edit (01:10 GMT) looks older than an earlier
+    -- one (01:50 BST) and would be silently rejected. A replay re-applies a stored payload that
+    -- may be stale, which is the case newer-wins exists for.
+    @IsReplay bit = 0
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -176,7 +183,7 @@ BEGIN
     MERGE core.Client WITH (HOLDLOCK) AS t
     USING #src AS s
        ON t.Source = s.Source AND t.SourceClientKey = s.SourceClientKey
-    WHEN MATCHED AND t.RowHash <> s.RowHash AND s.SourceModifiedUtc >= t.SourceModifiedUtc THEN
+    WHEN MATCHED AND t.RowHash <> s.RowHash AND (@IsReplay = 0 OR s.SourceModifiedUtc >= t.SourceModifiedUtc) THEN
         UPDATE SET ClientName = s.ClientName, NormalisedName = s.NormalisedName, Country = s.Country,
                    PostCode = s.PostCode, OpenedOn = s.OpenedOn, IsActive = s.IsActive,
                    SourceModifiedUtc = s.SourceModifiedUtc, RowHash = s.RowHash,
@@ -217,7 +224,13 @@ GO
    Merge: matters
 =========================================================================== */
 CREATE OR ALTER PROCEDURE core.usp_MergeMatters
-    @SyncRunId bigint
+    @SyncRunId bigint,
+    -- Newer-wins applies to replays only. A scheduled read returns the source's current state,
+    -- so it should always win. Comparing timestamps there is unsafe: Firm A stamps UK local time,
+    -- and when the clocks go back a genuine later edit (01:10 GMT) looks older than an earlier
+    -- one (01:50 BST) and would be silently rejected. A replay re-applies a stored payload that
+    -- may be stale, which is the case newer-wins exists for.
+    @IsReplay bit = 0
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -279,7 +292,7 @@ BEGIN
     MERGE core.Matter WITH (HOLDLOCK) AS t
     USING (SELECT * FROM #src WHERE ClientId IS NOT NULL) AS s
        ON t.Source = s.Source AND t.SourceMatterKey = s.SourceMatterKey
-    WHEN MATCHED AND t.RowHash <> s.RowHash AND s.SourceModifiedUtc >= t.SourceModifiedUtc THEN
+    WHEN MATCHED AND t.RowHash <> s.RowHash AND (@IsReplay = 0 OR s.SourceModifiedUtc >= t.SourceModifiedUtc) THEN
         UPDATE SET ClientId = s.ClientId, MatterNumber = s.MatterNumber, Description = s.Description,
                    PracticeAreaCode = s.PracticeAreaCode, FeeEarner = s.FeeEarner, OpenedOn = s.OpenedOn,
                    ClosedOn = s.ClosedOn, IsOpen = s.IsOpen, SourceModifiedUtc = s.SourceModifiedUtc,
@@ -362,15 +375,22 @@ BEGIN
         UNION ALL
         SELECT Source, 'Matter', COUNT(*) FROM core.Matter GROUP BY Source
     ),
+    -- One row per missing source record, not per dead letter: a record that was Ignored and
+    -- later failed again has two rows and must still count once. Open takes priority.
     exceptions AS (
-        SELECT dl.Source, dl.Entity,
-               SUM(CASE WHEN dl.Status IN ('New','ReplayRequested') THEN 1 ELSE 0 END) AS OpenCnt,
-               SUM(CASE WHEN dl.Status = 'Ignored' THEN 1 ELSE 0 END) AS IgnoredCnt
-          FROM ops.DeadLetter dl
-         WHERE dl.Status IN ('New','ReplayRequested','Ignored')
-           AND NOT EXISTS (SELECT 1 FROM core.Client c WHERE dl.Entity = 'Client' AND c.Source = dl.Source AND c.SourceClientKey = dl.SourceKey)
-           AND NOT EXISTS (SELECT 1 FROM core.Matter m WHERE dl.Entity = 'Matter' AND m.Source = dl.Source AND m.SourceMatterKey = dl.SourceKey)
-         GROUP BY dl.Source, dl.Entity
+        SELECT k.Source, k.Entity,
+               SUM(k.IsOpen)     AS OpenCnt,
+               SUM(1 - k.IsOpen) AS IgnoredCnt
+          FROM (
+                SELECT dl.Source, dl.Entity, dl.SourceKey,
+                       MAX(CASE WHEN dl.Status IN ('New','ReplayRequested') THEN 1 ELSE 0 END) AS IsOpen
+                  FROM ops.DeadLetter dl
+                 WHERE dl.Status IN ('New','ReplayRequested','Ignored')
+                   AND NOT EXISTS (SELECT 1 FROM core.Client c WHERE dl.Entity = 'Client' AND c.Source = dl.Source AND c.SourceClientKey = dl.SourceKey)
+                   AND NOT EXISTS (SELECT 1 FROM core.Matter m WHERE dl.Entity = 'Matter' AND m.Source = dl.Source AND m.SourceMatterKey = dl.SourceKey)
+                 GROUP BY dl.Source, dl.Entity, dl.SourceKey
+               ) k
+         GROUP BY k.Source, k.Entity
     )
     SELECT l.Source,
            l.Entity,

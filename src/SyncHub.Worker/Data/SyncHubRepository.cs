@@ -178,7 +178,7 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
 
     /* ---------------- Merge ---------------- */
 
-    public async Task<MergeResult> MergeAsync(string entity, long syncRunId)
+    public async Task<MergeResult> MergeAsync(string entity, long syncRunId, bool isReplay = false)
     {
         var proc = entity switch
         {
@@ -188,7 +188,7 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
         };
 
         await using var conn = connections.Create(Db);
-        return await conn.QuerySingleAsync<MergeResult>(proc, new { SyncRunId = syncRunId },
+        return await conn.QuerySingleAsync<MergeResult>(proc, new { SyncRunId = syncRunId, IsReplay = isReplay },
             commandType: CommandType.StoredProcedure, commandTimeout: LongCommandTimeoutSeconds);
     }
 

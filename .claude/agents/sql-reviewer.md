@@ -29,7 +29,8 @@ Use `Bash` only for read-only commands (for example `git diff`, `git status`, `l
 3. **Unambiguous date literals**: `'YYYYMMDD'` or `'YYYYMMDDThh:mm:ss'`. `'YYYY-MM-DD'` is misread under
    British-English logins.
 4. **Merges are idempotent**: updates happen only when the row hash differs, so a retry changes nothing.
-5. **Newer wins**: an incoming row never overwrites one with a later `SourceModifiedUtc`.
+5. **Newer wins on replay**: a replayed row (`@IsReplay = 1`) never overwrites one with a later `SourceModifiedUtc`.
+   Scheduled reads skip the check on purpose (Firm A's local-time stamps repeat an hour when clocks go back).
 6. **The watermark only moves after the merge commits** (same transaction, or strictly afterwards).
 7. **No string-built SQL from input**: Dapper parameters in C#; in procedures, `sp_executesql` with
    parameters and `QUOTENAME` for any dynamic identifier.

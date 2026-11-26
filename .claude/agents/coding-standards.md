@@ -32,7 +32,8 @@ Each rule is **[B] Blocking** (the push fails) or **[A] Advisory** (reported, pu
 - [B] Identity read from a request body or query string instead of the token (`ClaimsPrincipal`, `name` claim).
 - [B] A mapper (`ISourceMapper` implementation) that throws for bad data instead of returning `MapResult.Failure`.
 - [B] `async void` (except event handlers), `.Result` / `.Wait()` on tasks, an empty `catch`.
-- [B] Moving the sync watermark before the merge commits, or removing the row-hash / `SourceModifiedUtc` checks.
+- [B] Moving the sync watermark before the merge commits, removing the row-hash check, or removing the
+  `SourceModifiedUtc` newer-wins check from replays (`@IsReplay = 1`).
 - [A] Style: file-scoped namespaces, primary constructors for DI, `record`s for data, nullable warnings not
   suppressed with `!` without a reason, `CancellationToken` passed through.
 - [A] Logging: message templates, not `$"..."` interpolation, in `Log*` calls. Expected bad data at

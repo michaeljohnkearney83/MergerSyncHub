@@ -4,6 +4,9 @@
 */
 USE FirmA_Legacy;
 GO
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
 
 -- 25 matters get edited
 ;WITH pick AS (
