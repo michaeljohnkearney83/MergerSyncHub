@@ -19,6 +19,10 @@ namespace SyncHub.IntegrationTests;
 /// </summary>
 public sealed class SupportApiFactory(SqlServerFixture sql) : WebApplicationFactory<Program>
 {
+    /// <summary>
+    /// Points the API at the test database, turns telemetry off, and swaps the directory's signing keys
+    /// for <see cref="TestTokens.SigningKey"/>, so no directory needs to be running.
+    /// </summary>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");                             // no user secrets
@@ -37,6 +41,7 @@ public sealed class SupportApiFactory(SqlServerFixture sql) : WebApplicationFact
             }));
     }
 
+    /// <summary>An HTTP client for the in-memory API, sending <paramref name="token"/> as a Bearer token (none when <c>null</c>).</summary>
     public HttpClient ClientFor(string? token)
     {
         var client = CreateClient();
@@ -54,9 +59,11 @@ public static class TestTokens
 
     public static readonly RsaSecurityKey SigningKey = new(RSA.Create(2048)) { KeyId = "test-key" };
 
+    /// <summary>A valid token for a user with the given display name and app roles (none means signed in but no SyncHub access).</summary>
     public static string For(string name, params string[] roles) =>
         Create(name, roles, Issuer, Audience, DateTime.UtcNow.AddMinutes(30), SigningKey);
 
+    /// <summary>A token with every field controllable, for testing what the API must reject (wrong issuer, audience, key or expiry).</summary>
     public static string Create(string name, string[] roles, string issuer, string audience,
         DateTime expires, SecurityKey key)
     {

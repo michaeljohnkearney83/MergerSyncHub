@@ -107,6 +107,13 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
 - **Tests:** a new Support API endpoint gets a role test in `ApiAuthorizationTests` (who gets 403). A change to a
   merge procedure gets a case in `MergeTests`. Integration tests share one SQL container: isolate each test with
   `SqlServerFixture.NewSource()` rather than resetting the database.
+- **Method comments:** public/internal C# methods get `///` XML docs (summary, plus `<param>`/`<returns>` where the
+  meaning isn't obvious); exported TS functions, API client calls and components get JSDoc (`/** */`, `@param`,
+  `@returns`, `@throws`). Both feed IntelliSense. Say what it does and why, not the name again. Test methods are
+  self-describing and need none. `GenerateDocumentationFile` is on (`src/Directory.Build.props`) so malformed docs and
+  wrong `<param>` names are build warnings; CS1591 (missing docs) is off. Top-level `Program.cs` helpers are local
+  functions, which can't take `///`, so they get `//`.
+- **Versions:** when you upgrade a package, SDK or image, update the Versions table and badges at the top of README.
 - **UK English** in UI text and docs. Keep comments that explain trade-offs.
 
 ## Gotchas already hit

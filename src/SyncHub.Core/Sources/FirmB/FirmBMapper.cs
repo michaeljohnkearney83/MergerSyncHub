@@ -38,6 +38,8 @@ public sealed class FirmBMapper : ISourceMapper
 {
     public string Source => SourceSystems.FirmB;
 
+    /// <summary>Firm B client: needs a name and a lastModifiedUtc; dates arrive as strings and are validated here.</summary>
+    /// <inheritdoc cref="ISourceMapper.MapClient"/>
     public MapResult<StagedClient> MapClient(string sourceKey, string rawJson)
     {
         if (!SyncJson.TryDeserialize<FirmBClientDto>(rawJson, out var dto, out var error))
@@ -69,6 +71,8 @@ public sealed class FirmBMapper : ISourceMapper
             RawPayload: rawJson), sourceKey);
     }
 
+    /// <summary>Firm B matter: needs a client reference, matter number and valid dates, and must not close before it opens.</summary>
+    /// <inheritdoc cref="ISourceMapper.MapMatter"/>
     public MapResult<StagedMatter> MapMatter(string sourceKey, string rawJson)
     {
         if (!SyncJson.TryDeserialize<FirmBMatterDto>(rawJson, out var dto, out var error))

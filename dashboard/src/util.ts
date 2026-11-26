@@ -39,6 +39,10 @@ export function parseUtc(value: string): Date {
   return new Date(/Z$|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`)
 }
 
+/**
+ * A UTC date from the API as UK local date and time, e.g. "26 Nov, 13:58:40". Shows "—" when empty.
+ * @param value An API timestamp (UTC, usually without a Z).
+ */
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) return '—'
   return parseUtc(value).toLocaleString('en-GB', {
@@ -46,6 +50,7 @@ export function formatDateTime(value: string | null | undefined): string {
   })
 }
 
+/** How long ago a UTC timestamp was, e.g. "46s ago", "3h ago"; "never" when empty. */
 export function timeAgo(value: string | null | undefined): string {
   if (!value) return 'never'
   const seconds = Math.round((Date.now() - parseUtc(value).getTime()) / 1000)
@@ -55,6 +60,7 @@ export function timeAgo(value: string | null | undefined): string {
   return `${Math.round(seconds / 86_400)}d ago`
 }
 
+/** A number with thousands separators, e.g. 75,436. */
 export const number = (n: number) => n.toLocaleString('en-GB')
 
 /** Splits PascalCase codes for display: CloseDateBeforeOpenDate -> Close date before open date */
@@ -83,6 +89,7 @@ export function loadUser(): string {
   }
 }
 
+/** Remembers the name typed on this computer; storage failures are ignored. */
 export function saveUser(user: string) {
   try {
     window.localStorage.setItem(USER_KEY, user)

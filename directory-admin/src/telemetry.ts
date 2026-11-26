@@ -15,6 +15,10 @@ import { faro, getWebInstrumentations, initializeFaro, LogLevel } from '@grafana
 /** Drop the query string: it can hold search terms such as client names. */
 const pathOnly = (path: string) => path.split('?')[0]
 
+/**
+ * Starts Grafana Faro if VITE_FARO_URL was set at build time; otherwise does nothing.
+ * @param appName Shown in Grafana as service_name, e.g. 'directory-web'.
+ */
 export function initTelemetry(appName: string): void {
   const url = import.meta.env.VITE_FARO_URL as string | undefined
   if (!url) return

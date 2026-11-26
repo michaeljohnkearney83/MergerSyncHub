@@ -4,5 +4,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
+    <!-- Build the XML doc file, so /// summaries show in IntelliSense across project references, and
+         the compiler checks them (a wrong <param> name or a broken cref is a warning).
+         CS1591 (missing comment) is off: we document what needs explaining, not every property. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 </Project>

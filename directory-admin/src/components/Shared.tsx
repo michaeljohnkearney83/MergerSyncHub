@@ -71,6 +71,7 @@ export function GroupPicker({ groups, selected, onChange, disabled }: {
   )
 }
 
+/** The application an app role belongs to, by its prefix, e.g. "SyncHub.Support" is the SyncHub Support dashboard. */
 export function appName(appRole: string): string {
   if (appRole.startsWith('SyncHub.')) return 'SyncHub Support dashboard'
   if (appRole.startsWith('Directory.')) return 'Directory admin centre'

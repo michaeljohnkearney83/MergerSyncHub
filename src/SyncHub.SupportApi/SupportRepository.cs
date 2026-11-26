@@ -147,12 +147,14 @@ public sealed class UnmappedCode
 
 public sealed class SupportRepository(IConfiguration configuration)
 {
+    /// <summary>A new connection to the SyncHub database (connection string <c>SyncHub</c>).</summary>
     private SqlConnection Open() =>
         new(configuration.GetConnectionString("SyncHub")
             ?? throw new InvalidOperationException("Connection string 'SyncHub' is missing."));
 
     private const string OpenStatuses = "('New','ReplayRequested')";
 
+    /// <summary>Headline numbers for the Overview page: clients, matters, open exceptions, pending duplicates, failed runs in 24 hours, last successful sync.</summary>
     public async Task<Summary> GetSummaryAsync()
     {
         await using var conn = Open();
@@ -169,6 +171,9 @@ public sealed class SupportRepository(IConfiguration configuration)
             """);
     }
 
+    /// <summary>Recent sync and replay runs, newest first, with record counts summed across entities.</summary>
+    /// <param name="top">Maximum number of runs to return.</param>
+    /// <param name="hideQuiet">Leave out successful runs that changed nothing, so problems stand out.</param>
     public async Task<IEnumerable<RunRow>> GetRunsAsync(int top, bool hideQuiet)
     {
         await using var conn = Open();
@@ -191,6 +196,7 @@ public sealed class SupportRepository(IConfiguration configuration)
             """, new { Top = top, HideQuiet = hideQuiet });
     }
 
+    /// <summary>Per-entity counts (clients, matters) for one run.</summary>
     public async Task<IEnumerable<RunEntityRow>> GetRunEntitiesAsync(long syncRunId)
     {
         await using var conn = Open();
@@ -207,6 +213,10 @@ public sealed class SupportRepository(IConfiguration configuration)
     /// </summary>
     private static DbString Ansi(string? value, int length) => new() { Value = value, IsAnsi = true, Length = length };
 
+    /// <summary>Dead letters for the Exceptions page (up to 500, most recently seen first).</summary>
+    /// <param name="status"><c>Open</c> (New or ReplayRequested), <c>All</c>, or one exact status.</param>
+    /// <param name="source">Optional source filter.</param>
+    /// <param name="errorType">Optional error type filter.</param>
     public async Task<IEnumerable<DeadLetterRow>> GetDeadLettersAsync(string status, string? source, string? errorType)
     {
         await using var conn = Open();
@@ -222,6 +232,7 @@ public sealed class SupportRepository(IConfiguration configuration)
             """, new { Status = Ansi(status, 20), Source = Ansi(source, 20), ErrorType = Ansi(errorType, 50) });
     }
 
+    /// <summary>Open dead letters grouped by source and error type, for the summary chips on the Exceptions page.</summary>
     public async Task<IEnumerable<ErrorTypeCount>> GetOpenErrorTypesAsync()
     {
         await using var conn = Open();
@@ -232,6 +243,7 @@ public sealed class SupportRepository(IConfiguration configuration)
             """);
     }
 
+    /// <summary>One dead letter with its full payload, or <c>null</c> if it doesn't exist.</summary>
     public async Task<DeadLetterDetail?> GetDeadLetterAsync(long id)
     {
         await using var conn = Open();
@@ -239,6 +251,15 @@ public sealed class SupportRepository(IConfiguration configuration)
             "SELECT * FROM ops.DeadLetter WHERE DeadLetterId = @Id", new { Id = id });
     }
 
+    /// <summary>
+    /// Saves a corrected payload so the record can be replayed, recording who edited it and why.
+    /// Only allowed while the dead letter is <c>New</c>.
+    /// </summary>
+    /// <param name="user">The signed-in user, taken from the token.</param>
+    /// <param name="id">The dead letter.</param>
+    /// <param name="payload">The corrected JSON.</param>
+    /// <param name="note">Optional reason, added to the audit note.</param>
+    /// <returns><c>false</c> if the dead letter doesn't exist or isn't <c>New</c>.</returns>
     public async Task<bool> UpdatePayloadAsync(long id, string payload, string user, string? note)
     {
         await using var conn = Open();
@@ -252,6 +273,12 @@ public sealed class SupportRepository(IConfiguration configuration)
         return rows == 1;
     }
 
+    /// <summary>Queues dead letters for the worker to replay: one by id, or every <c>New</c> one matching the filters.</summary>
+    /// <param name="id">One dead letter, or <c>null</c> for a bulk replay.</param>
+    /// <param name="user">The signed-in user, recorded in the audit note.</param>
+    /// <param name="source">Bulk only: limit to one source, or <c>null</c> for all.</param>
+    /// <param name="errorType">Bulk only: limit to one error type, or <c>null</c> for all.</param>
+    /// <returns>How many were queued.</returns>
     public async Task<int> RequestReplayAsync(long? id, string? source, string? errorType, string user)
     {
         await using var conn = Open();
@@ -266,6 +293,8 @@ public sealed class SupportRepository(IConfiguration configuration)
             """, new { Id = id, Source = Ansi(source, 20), ErrorType = Ansi(errorType, 50), User = user });
     }
 
+    /// <summary>Closes a dead letter as Ignored (known bad data that won't be fixed), with who and why in the audit note.</summary>
+    /// <returns><c>false</c> if it was already resolved or ignored.</returns>
     public async Task<bool> IgnoreAsync(long id, string user, string note)
     {
         await using var conn = Open();
@@ -278,6 +307,7 @@ public sealed class SupportRepository(IConfiguration configuration)
         return rows == 1;
     }
 
+    /// <summary>Suggested duplicate pairs with both clients' details and matter counts, highest score first. <c>All</c> returns every status.</summary>
     public async Task<IEnumerable<DuplicateRow>> GetDuplicatesAsync(string status)
     {
         await using var conn = Open();
@@ -298,6 +328,8 @@ public sealed class SupportRepository(IConfiguration configuration)
             """, new { Status = Ansi(status, 20) });
     }
 
+    /// <summary>Records a data steward's decision on a suggested pair. Setting it back to <c>Pending</c> clears the reviewer.</summary>
+    /// <returns><c>false</c> if the pair doesn't exist.</returns>
     public async Task<bool> DecideDuplicateAsync(int candidateId, string decision, string user)
     {
         await using var conn = Open();
@@ -327,6 +359,7 @@ public sealed class SupportRepository(IConfiguration configuration)
             new { Source = Ansi(source, 20), Search = Ansi(search, 50), Pattern = $"%{escaped}%" });
     }
 
+    /// <summary>Source totals against hub counts per source and entity (ops.usp_GetReconciliation); anything unexplained shows Investigate.</summary>
     public async Task<IEnumerable<ReconciliationRow>> GetReconciliationAsync()
     {
         await using var conn = Open();
@@ -334,6 +367,7 @@ public sealed class SupportRepository(IConfiguration configuration)
             commandType: System.Data.CommandType.StoredProcedure);
     }
 
+    /// <summary>Practice-area codes on matters that have no mapping yet, most-used first.</summary>
     public async Task<IEnumerable<UnmappedCode>> GetUnmappedPracticeAreasAsync()
     {
         await using var conn = Open();
@@ -347,12 +381,14 @@ public sealed class SupportRepository(IConfiguration configuration)
             """);
     }
 
+    /// <summary>The distinct practice areas already used in mappings, for the mapping drop-down.</summary>
     public async Task<IEnumerable<string>> GetPracticeAreasAsync()
     {
         await using var conn = Open();
         return await conn.QueryAsync<string>("SELECT DISTINCT PracticeArea FROM core.PracticeAreaMap ORDER BY PracticeArea");
     }
 
+    /// <summary>Maps a source's practice-area code to a firm-wide practice area, or changes an existing mapping.</summary>
     public async Task AddPracticeAreaMappingAsync(string source, string sourceCode, string practiceArea)
     {
         await using var conn = Open();

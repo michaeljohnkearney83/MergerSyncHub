@@ -100,15 +100,20 @@ public sealed class SyncMetrics
             "{run}", "Runs still 'Running' 30+ minutes after they started.");
     }
 
+    /// <summary>Stores the latest SQL health snapshot for the dead-letter, reconciliation and stuck-run gauges.</summary>
+    /// <param name="maxAge">After this, the snapshot is treated as stale and those gauges report nothing.</param>
+    /// <param name="snapshot">Open dead letters, stuck runs and reconciliation, as read from SQL.</param>
     public void HealthObserved(HealthSnapshot snapshot, TimeSpan maxAge)
     {
         _snapshotMaxAge = maxAge;
         _health = snapshot;
     }
 
+    /// <summary>Counts a finished replay run. Kept apart from scheduled runs so it never resets time-since-success.</summary>
     public void ReplayCompleted(string source, string outcome) =>
         _replayRuns.Add(1, new TagList { { "source", source }, { "outcome", outcome } });
 
+    /// <summary>Counts replayed records by outcome: <c>resolved</c> or <c>failed_again</c>. Zero counts are skipped.</summary>
     public void RecordsReplayed(string source, string entity, string outcome, int count)
     {
         if (count > 0)
@@ -118,6 +123,10 @@ public sealed class SyncMetrics
     /// <summary>Call once per source at start-up so its gauge exists before the first run finishes.</summary>
     public void TrackSource(string source) => _lastSuccess.TryAdd(source, _startedAt);
 
+    /// <summary>
+    /// Counts a finished scheduled run and records its duration. A <c>Succeeded</c> or <c>SucceededWithErrors</c>
+    /// run resets time-since-success for the source (the watermark moved, so data is flowing).
+    /// </summary>
     public void RunCompleted(string source, string outcome, TimeSpan elapsed)
     {
         var tags = new TagList { { "source", source }, { "outcome", outcome } };
@@ -131,20 +140,25 @@ public sealed class SyncMetrics
             _lastSuccess.TryAdd(source, _startedAt);
     }
 
+    /// <summary>Counts records read from a source in one run.</summary>
     public void RecordsRead(string source, string entity, int count) =>
         _read.Add(count, new TagList { { "source", source }, { "entity", entity } });
 
+    /// <summary>Counts records inserted and updated in core by one merge.</summary>
     public void RecordsMerged(string source, string entity, int inserted, int updated)
     {
         _merged.Add(inserted, new TagList { { "source", source }, { "entity", entity }, { "operation", "insert" } });
         _merged.Add(updated, new TagList { { "source", source }, { "entity", entity }, { "operation", "update" } });
     }
 
+    /// <summary>Counts records sent to the dead-letter queue, by error type.</summary>
     public void RecordsRejected(string source, string entity, string errorType, int count = 1) =>
         _rejected.Add(count, new TagList { { "source", source }, { "entity", entity }, { "error_type", errorType } });
 
+    /// <summary>Counts a cycle step that threw (e.g. "Sync FirmB", "Health snapshot").</summary>
     public void StepFailed(string step) => _stepFailures.Add(1, new KeyValuePair<string, object?>("step", step));
 
+    /// <summary>Records how long a full cycle took.</summary>
     public void CycleCompleted(TimeSpan elapsed) => _cycleDuration.Record(elapsed.TotalSeconds);
 
     /// <summary>
@@ -163,11 +177,14 @@ public sealed class SyncMetrics
         return measurements.Count == 0 && emptySeries is not null ? emptySeries() : measurements;
     }
 
+    /// <summary>A zero for each tracked source, so an empty result still produces a series and absent() alerts stay quiet.</summary>
     private IEnumerable<Measurement<int>> ZeroPerSource() =>
         _lastSuccess.Keys.Select(source => new Measurement<int>(0, Tag("source", source)));
 
+    /// <summary>Shorthand for a metric label.</summary>
     private static KeyValuePair<string, object?> Tag(string key, object? value) => new(key, value);
 
+    /// <summary>Gauge callback: seconds since each source last synced successfully.</summary>
     private IEnumerable<Measurement<double>> ObserveTimeSinceSuccess()
     {
         var now = _clock.GetUtcNow();

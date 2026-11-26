@@ -10,6 +10,8 @@ public static class JaroWinkler
     private const double PrefixScale = 0.1;
     private const int MaxPrefix = 4;
 
+    /// <summary>Jaro-Winkler similarity of two strings.</summary>
+    /// <returns>1 for identical strings, 0 for nothing in common; symmetric in <paramref name="a"/> and <paramref name="b"/>.</returns>
     public static double Similarity(string a, string b)
     {
         if (a.Length == 0 && b.Length == 0) return 1.0;

@@ -11,6 +11,8 @@ public sealed class MapperRegistry(IEnumerable<ISourceMapper> mappers)
 {
     private readonly Dictionary<string, ISourceMapper> _bySource = mappers.ToDictionary(m => m.Source);
 
+    /// <summary>The mapper registered for <paramref name="source"/>.</summary>
+    /// <exception cref="InvalidOperationException">No mapper is registered for that source.</exception>
     public ISourceMapper For(string source) =>
         _bySource.TryGetValue(source, out var mapper)
             ? mapper
@@ -35,6 +37,11 @@ public sealed class SourceSyncService(
     private static readonly string[] EntityOrder = [Entities.Client, Entities.Matter];   // clients first: matters need them
     private const int FirmALocalTimeLookbackMinutes = 65;
 
+    /// <summary>
+    /// One scheduled run for one source: clients first (matters need them), then matters. Records the run
+    /// in ops.SyncRun and its outcome in metrics. A failure fails this run only; the next cycle retries from
+    /// the same watermark. Cancellation (shutdown) marks the run failed and rethrows.
+    /// </summary>
     public async Task SyncAsync(ISourceConnector connector, CancellationToken ct)
     {
         var correlationId = Guid.NewGuid();
@@ -82,6 +89,11 @@ public sealed class SourceSyncService(
         }
     }
 
+    /// <summary>
+    /// Reads changes since the watermark (minus the look-back), maps each record, stages in batches,
+    /// merges, then moves the watermark to the newest timestamp read. Firm A looks back at least 65 minutes
+    /// because its UK local timestamps repeat an hour when the clocks go back.
+    /// </summary>
     private async Task<EntitySyncResult> SyncEntityAsync(long runId, ISourceConnector connector, string entity, CancellationToken ct)
     {
         var source = connector.Source;
@@ -148,6 +160,7 @@ public sealed class SourceSyncService(
         return new EntitySyncResult(entity, sourceTotal, read, staged, merge.Inserted, merge.Updated, failed);
     }
 
+    /// <summary>Bulk-stages the buffered clients and matters and clears the buffers. <returns>Rows staged.</returns></summary>
     private async Task<int> FlushAsync(long runId, List<StagedClient> clients, List<StagedMatter> matters, CancellationToken ct)
     {
         var count = await repository.BulkStageClientsAsync(runId, clients, ct)
@@ -157,6 +170,7 @@ public sealed class SourceSyncService(
         return count;
     }
 
+    /// <summary>Logs, counts and dead-letters a record that failed mapping, keeping its raw payload for replay.</summary>
     private Task DeadLetterAsync(long runId, SourceRecord record, string errorType, string message)
     {
         metrics.RecordsRejected(record.Source, record.Entity, errorType);
@@ -166,5 +180,6 @@ public sealed class SourceSyncService(
             errorType, message, record.RawJson);
     }
 
+    /// <summary>Shortens text to fit ops.SyncRun.ErrorMessage.</summary>
     private static string Truncate(string value, int max) => value.Length <= max ? value : value[..max];
 }

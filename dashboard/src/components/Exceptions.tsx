@@ -7,6 +7,7 @@ import { Empty, ErrorBanner, Panel, SourceTag, StatusBadge } from './ui'
 
 const STATUSES = ['Open', 'Resolved', 'Ignored', 'All'] as const
 
+/** The exception queue: filter dead letters, then fix, replay or ignore them (if the role allows). */
 export function ExceptionsPanel({ user, canFix }: { user: string; canFix: boolean }) {
   const [status, setStatus] = useState<(typeof STATUSES)[number]>('Open')
   const [source, setSource] = useState('')

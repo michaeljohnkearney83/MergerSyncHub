@@ -51,6 +51,7 @@ public sealed class FirmAConnector(SqlConnectionFactory connections) : ISourceCo
 
     public string Source => SourceSystems.FirmA;
 
+    /// <inheritdoc/>
     public async Task<int> GetSourceTotalAsync(string entity, CancellationToken ct)
     {
         var sql = entity == Entities.Client ? "SELECT COUNT(*) FROM dbo.CLIENT" : "SELECT COUNT(*) FROM dbo.MATTER";
@@ -58,6 +59,7 @@ public sealed class FirmAConnector(SqlConnectionFactory connections) : ISourceCo
         return await conn.ExecuteScalarAsync<int>(new CommandDefinition(sql, cancellationToken: ct));
     }
 
+    /// <inheritdoc/>
     public IAsyncEnumerable<SourceRecord> ReadChangesAsync(string entity, DateTime? since, CancellationToken ct) =>
         entity switch
         {
@@ -68,6 +70,11 @@ public sealed class FirmAConnector(SqlConnectionFactory connections) : ISourceCo
             _ => throw new ArgumentOutOfRangeException(nameof(entity), entity, null)
         };
 
+    /// <summary>
+    /// Streams rows changed since <paramref name="since"/> (all rows when null), oldest first, each serialised to
+    /// JSON so the mapper gets a raw payload it can also store for replay. Two query shapes instead of
+    /// "@Since IS NULL OR ..." let SQL Server seek the LAST_MODIFIED index.
+    /// </summary>
     private async IAsyncEnumerable<SourceRecord> ReadAsync<TRow>(
         string select, string idColumn, DateTime? since,
         Func<TRow, int> key, Func<TRow, DateTime> modified, string entity,
@@ -102,6 +109,7 @@ public sealed class FirmBConnector(HttpClient http, IOptions<FirmBOptions> optio
 {
     public string Source => SourceSystems.FirmB;
 
+    /// <inheritdoc/>
     public async Task<int> GetSourceTotalAsync(string entity, CancellationToken ct)
     {
         var stats = await http.GetFromJsonAsync<FirmBStats>("api/stats", SyncJson.Options, ct)
@@ -109,6 +117,7 @@ public sealed class FirmBConnector(HttpClient http, IOptions<FirmBOptions> optio
         return entity == Entities.Client ? stats.Clients : stats.Matters;
     }
 
+    /// <inheritdoc/>
     public async IAsyncEnumerable<SourceRecord> ReadChangesAsync(string entity, DateTime? since,
         [EnumeratorCancellation] CancellationToken ct)
     {
@@ -154,5 +163,6 @@ public sealed class FirmBConnector(HttpClient http, IOptions<FirmBOptions> optio
         } while (hasMore);
     }
 
+    /// <summary>Shape of Firm B's <c>/api/stats</c> response.</summary>
     private sealed record FirmBStats(int Clients, int Matters);
 }

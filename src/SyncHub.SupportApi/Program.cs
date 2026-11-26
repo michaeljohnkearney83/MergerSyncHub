@@ -162,8 +162,10 @@ api.MapPost("/practice-areas/map", async (SupportRepository repo, PracticeAreaMa
 
 app.Run();
 
+// Blank query or body values mean "no filter".
 static string? NullIfEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
 
+// Who is doing this, for audit notes: always from the validated token, never the request body.
 static string Actor(ClaimsPrincipal user) =>
     user.Identity?.Name ?? user.FindFirst("preferred_username")?.Value ?? "unknown";
 

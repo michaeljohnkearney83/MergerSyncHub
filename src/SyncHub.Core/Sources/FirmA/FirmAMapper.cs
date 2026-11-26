@@ -36,6 +36,8 @@ public sealed class FirmAMapper : ISourceMapper
 {
     public string Source => SourceSystems.FirmA;
 
+    /// <summary>Firm A client: needs a name; status "C" means closed; LAST_MODIFIED is UK local time and is converted to UTC.</summary>
+    /// <inheritdoc cref="ISourceMapper.MapClient"/>
     public MapResult<StagedClient> MapClient(string sourceKey, string rawJson)
     {
         if (!SyncJson.TryDeserialize<FirmAClientRow>(rawJson, out var row, out var error))
@@ -60,6 +62,11 @@ public sealed class FirmAMapper : ISourceMapper
             RawPayload: rawJson), sourceKey);
     }
 
+    /// <summary>
+    /// Firm A matter: needs a client id and matter number, and must not close before it opens.
+    /// Department code becomes the practice-area code. LAST_MODIFIED is UK local time and is converted to UTC.
+    /// </summary>
+    /// <inheritdoc cref="ISourceMapper.MapMatter"/>
     public MapResult<StagedMatter> MapMatter(string sourceKey, string rawJson)
     {
         if (!SyncJson.TryDeserialize<FirmAMatterRow>(rawJson, out var row, out var error))

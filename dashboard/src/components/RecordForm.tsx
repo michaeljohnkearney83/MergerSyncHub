@@ -103,6 +103,7 @@ const FOCUS: Record<string, Role[]> = {
 
 export type JsonRecord = Record<string, unknown>
 
+/** The editable fields for a source and entity (e.g. FirmA client), or undefined if the form doesn't support it. */
 export function schemaFor(source: string, entity: string): Schema | undefined {
   return SCHEMAS[`${source}:${entity}`]
 }
@@ -134,6 +135,11 @@ const isBlank = (v: unknown) => v === null || v === undefined || (typeof v === '
 
 /* ---------------- Validation (mirrors FirmAMapper / FirmBMapper) ---------------- */
 
+/**
+ * Checks a corrected record with the same rules as the worker's mappers, so support can fix every problem
+ * before replaying instead of finding out from another failure.
+ * @returns Error messages by field name; empty when the record is valid.
+ */
 export function validateRecord(schema: Schema, record: JsonRecord): Record<string, string> {
   const errors: Record<string, string> = {}
 
@@ -161,6 +167,7 @@ export function validateRecord(schema: Schema, record: JsonRecord): Record<strin
 
 /* ---------------- Form ---------------- */
 
+/** A form for correcting a dead letter's payload field by field, highlighting the fields the error type points at. */
 export function RecordForm({ source, entity, errorType, record, errors, readOnly, onChange }: {
   source: string
   entity: string

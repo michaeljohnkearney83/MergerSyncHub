@@ -30,6 +30,7 @@ public static class Applications
     public static readonly App SyncHub = new("synchub", "api://synchub", "SyncHub.", "SyncHub Support dashboard");
     public static readonly App Directory = new("directory", "api://directory", "Directory.", "Directory admin centre");
 
+    /// <summary>The application a sign-in is for, by its resource name (<c>synchub</c> or <c>directory</c>); <c>null</c> if unknown.</summary>
     public static App? Find(string? resource) =>
         string.Equals(resource, SyncHub.Resource, StringComparison.OrdinalIgnoreCase) ? SyncHub
         : string.Equals(resource, Directory.Resource, StringComparison.OrdinalIgnoreCase) ? Directory
@@ -47,6 +48,8 @@ public static class Passwords
     private const int SaltBytes = 16;
     private const int HashBytes = 32;
 
+    /// <summary>Hashes a password with a new random salt.</summary>
+    /// <returns>The stored form: <c>PBKDF2-SHA256$iterations$salt$hash</c>.</returns>
     public static string Hash(string password)
     {
         var salt = RandomNumberGenerator.GetBytes(SaltBytes);
@@ -54,6 +57,7 @@ public static class Passwords
         return $"PBKDF2-SHA256${Iterations}${Convert.ToBase64String(salt)}${Convert.ToBase64String(hash)}";
     }
 
+    /// <summary>Checks a password against a stored hash using its salt and iteration count, with a constant-time comparison. <c>false</c> for a malformed hash.</summary>
     public static bool Verify(string password, string stored)
     {
         var parts = stored.Split('$');

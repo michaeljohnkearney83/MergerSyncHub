@@ -17,12 +17,20 @@ public sealed class DuplicateDetector
     private const double PostcodeBonus = 0.05;
     private readonly double _threshold;
 
+    /// <summary>Creates a detector that suggests pairs scoring at or above <paramref name="threshold"/>.</summary>
+    /// <param name="threshold">Minimum score (0-1) to suggest a pair. 0.92 keeps false positives rare;
+    /// a false merge of two clients is worse than a missed one.</param>
     public DuplicateDetector(double threshold = 0.92)
     {
         if (threshold is <= 0 or > 1) throw new ArgumentOutOfRangeException(nameof(threshold));
         _threshold = threshold;
     }
 
+    /// <summary>
+    /// Scores every pair of clients that share the first three letters of their core name and returns
+    /// the pairs at or above the threshold, each with a human-readable reason.
+    /// </summary>
+    /// <returns>Pairs with the lower client id first, so the same pair is stored once.</returns>
     public IReadOnlyList<MatchCandidate> FindCandidates(IEnumerable<ClientForMatching> clients)
     {
         var prepared = clients
@@ -48,6 +56,10 @@ public sealed class DuplicateDetector
         return candidates;
     }
 
+    /// <summary>
+    /// Scores one pair: exact core-name match, else word-level similarity, with a small bonus for the
+    /// same postcode. Returns <c>null</c> below the threshold.
+    /// </summary>
     private MatchCandidate? Score(Prepared a, Prepared b)
     {
         var exact = a.CoreName == b.CoreName;
@@ -91,6 +103,7 @@ public sealed class DuplicateDetector
             from.Average(word => to.Max(other => JaroWinkler.Similarity(word, other)));
     }
 
+    /// <summary>Postcode without spaces, upper case, so "l1 1aa" and "L11AA" compare equal.</summary>
     private static string? NormalisePostcode(string? postcode) =>
         string.IsNullOrWhiteSpace(postcode) ? null : postcode.Replace(" ", string.Empty).ToUpperInvariant();
 

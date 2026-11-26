@@ -26,6 +26,7 @@ public sealed class SqlServerFixture : IAsyncLifetime
 
     public string SyncHubConnectionString { get; private set; } = "";
 
+    /// <summary>Starts SQL Server and runs the schema and procedure scripts. Runs once per test run.</summary>
     public async Task InitializeAsync()
     {
         await _container.StartAsync();
@@ -37,6 +38,7 @@ public sealed class SqlServerFixture : IAsyncLifetime
         SyncHubConnectionString = new SqlConnectionStringBuilder(master) { InitialCatalog = "SyncHub" }.ConnectionString;
     }
 
+    /// <summary>Stops and removes the container.</summary>
     public Task DisposeAsync() => _container.DisposeAsync().AsTask();
 
     /// <summary>A Source value no other test uses, so tests can share one database safely.</summary>

@@ -42,6 +42,9 @@ Each rule is **[B] Blocking** (the push fails) or **[A] Advisory** (reported, pu
   low-cardinality: never keys, names, usernames, run ids or correlation ids. A renamed metric needs
   `monitoring/alert-rules.yml` and the dashboard JSON updated in the same change ([B] if they are left broken).
 - [A] Trade-off comments ("why") removed or missing on a non-obvious decision.
+- [A] A new public or internal method without a `///` summary, or a new exported TS function, API call or
+  component without JSDoc. A summary that only repeats the method name doesn't count.
+- [A] A package, SDK or image version changed without updating the Versions table at the top of README.
 
 ### T-SQL (`database/`, and SQL strings in C#)
 - [B] A script that is not re-runnable (`CREATE` without a guard where `CREATE OR ALTER` or drop/create is needed).

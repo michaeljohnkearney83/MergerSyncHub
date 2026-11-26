@@ -22,6 +22,10 @@ public static class Seeder
         new("Sam", "Carter", "Paralegal", "Litigation", "Liverpool", ["SyncHub.Viewer"], Enabled: false), // a leaver
     ];
 
+    /// <summary>
+    /// Creates the demo accounts and their group memberships on first start (when the directory has no users).
+    /// Does nothing on later starts, and logs rather than throws if the database isn't ready.
+    /// </summary>
     public static async Task SeedAsync(IServiceProvider services)
     {
         var repo = services.GetRequiredService<DirectoryRepository>();

@@ -36,6 +36,13 @@ public static class ObservabilityExtensions
         "Polly"                                  // retries, circuit breaker state changes
     ];
 
+    /// <summary>
+    /// Sends this service's metrics and logs over OTLP to the collector at <c>OpenTelemetry:OtlpEndpoint</c>.
+    /// Does nothing when that setting is empty.
+    /// </summary>
+    /// <param name="builder">The host builder for the service.</param>
+    /// <param name="serviceName">Becomes <c>service.name</c>: the Prometheus job and the Loki <c>service_name</c> label.</param>
+    /// <param name="extraMeters">The service's own meters, e.g. <c>SyncHub.Worker</c>, added to the built-in ASP.NET Core, HttpClient, runtime and Polly meters.</param>
     public static IHostApplicationBuilder AddObservability(
         this IHostApplicationBuilder builder, string serviceName, params string[] extraMeters)
     {

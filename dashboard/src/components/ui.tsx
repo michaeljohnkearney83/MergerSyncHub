@@ -27,14 +27,17 @@ const labelFor: Record<string, string> = {
   NotDuplicate: 'Not a duplicate',
 }
 
+/** A coloured badge for a run or dead-letter status. */
 export function StatusBadge({ status }: { status: string }) {
   return <span className={`badge badge-${toneFor[status] ?? 'muted'}`}>{labelFor[status] ?? status}</span>
 }
 
+/** A small tag naming the source firm. */
 export function SourceTag({ source }: { source: string }) {
   return <span className={`source source-${source.toLowerCase()}`}>{source === 'FirmA' ? 'Firm A · UK' : source === 'FirmB' ? 'Firm B · US' : source}</span>
 }
 
+/** A titled card with optional action buttons in its header. */
 export function Panel({ title, actions, children }: { title: string; actions?: ReactNode; children: ReactNode }) {
   return (
     <section className="panel">
@@ -47,11 +50,13 @@ export function Panel({ title, actions, children }: { title: string; actions?: R
   )
 }
 
+/** A red error message; renders nothing when there is no message. */
 export function ErrorBanner({ message }: { message: string | null | undefined }) {
   if (!message) return null
   return <div className="error-banner" role="alert">{message}</div>
 }
 
+/** Placeholder text for an empty list. */
 export function Empty({ children }: { children: ReactNode }) {
   return <p className="empty">{children}</p>
 }

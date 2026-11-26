@@ -38,6 +38,7 @@ public sealed class FirmBStore
          "Wage and hour class action", "Licensing agreement"];
     private static readonly string[] ZipCodes = ["60601", "10019", "94105", "77002", "20004", "90071", "02110", "33131"];
 
+    /// <summary>Builds the in-memory data set with a fixed random seed, so every start has the same clients, matters and bad records.</summary>
     public FirmBStore()
     {
         Seed();
@@ -45,11 +46,13 @@ public sealed class FirmBStore
 
     /* ---------------- Queries ---------------- */
 
+    /// <summary>Total clients and matters, used by the worker for reconciliation.</summary>
     public object Stats()
     {
         lock (_sync) return new { clients = _clients.Count, matters = _matters.Count };
     }
 
+    /// <summary>One page of clients changed at or after <paramref name="modifiedSinceUtc"/> (all when null), oldest change first.</summary>
     public PageResponse<ClientDto> GetClients(DateTime? modifiedSinceUtc, int page, int pageSize)
     {
         lock (_sync)
@@ -63,6 +66,7 @@ public sealed class FirmBStore
         }
     }
 
+    /// <summary>One page of matters changed at or after <paramref name="modifiedSinceUtc"/> (all when null), oldest change first.</summary>
     public PageResponse<MatterDto> GetMatters(DateTime? modifiedSinceUtc, int page, int pageSize)
     {
         lock (_sync)
@@ -76,11 +80,13 @@ public sealed class FirmBStore
         }
     }
 
+    /// <summary>One client by id, or <c>null</c>.</summary>
     public ClientDto? GetClient(string id)
     {
         lock (_sync) return _clients.FirstOrDefault(c => c.Id == id)?.ToDto();
     }
 
+    /// <summary>One matter by id, or <c>null</c>.</summary>
     public MatterDto? GetMatter(string id)
     {
         lock (_sync) return _matters.FirstOrDefault(m => m.Id == id)?.ToDto();
@@ -119,6 +125,7 @@ public sealed class FirmBStore
 
     /* ---------------- Seed data ---------------- */
 
+    /// <summary>Generates the clients and matters, deliberately including some bad records (missing names, invalid dates, unknown clients) for the dead-letter demo.</summary>
     private void Seed()
     {
         var now = new DateTime(2026, 11, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -196,6 +203,7 @@ public sealed class FirmBStore
         }
     }
 
+    /// <summary>A random matter for a client; <paramref name="isNew"/> gives it a recent open date.</summary>
     private Matter NewMatter(string clientId, DateTime now, bool isNew)
     {
         var id = _nextMatterNumber++;
@@ -233,9 +241,11 @@ public sealed class FirmBStore
         return matter;
     }
 
+    /// <summary>A random time up to <paramref name="maxDays"/> days before <paramref name="now"/>.</summary>
     private DateTime RandomPast(DateTime now, int maxDays) =>
         now.AddMinutes(-_random.Next(1, maxDays * 24 * 60));
 
+    /// <summary>A random date between two dates, as <c>yyyy-MM-dd</c> text (the API sends dates as strings).</summary>
     private string RandomDate(DateTime from, DateTime to) =>
         from.AddDays(_random.Next(0, (int)(to - from).TotalDays)).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
@@ -249,6 +259,7 @@ public sealed class FirmBStore
         public string Status { get; set; } = "active";
         public DateTime LastModifiedUtc { get; set; }
 
+        /// <summary>The client as the API returns it (dates as strings, as the real system does).</summary>
         public ClientDto ToDto() => new(Id, Name, Country, PostalCode, OpenedDate, Status, LastModifiedUtc);
     }
 
@@ -265,6 +276,7 @@ public sealed class FirmBStore
         public string Status { get; set; } = "open";
         public DateTime LastModifiedUtc { get; set; }
 
+        /// <summary>The matter as the API returns it (dates as strings, as the real system does).</summary>
         public MatterDto ToDto() => new(Id, ClientId, MatterNumber, Title, PracticeGroup, ResponsibleAttorney,
             OpenedDate, ClosedDate, Status, LastModifiedUtc);
     }

@@ -11,6 +11,7 @@ const STATUSES = [
   { id: 'disabled', label: 'Disabled' },
 ] as const
 
+/** Searchable list of users, with the selected user's details and admin actions alongside. */
 export function UsersPanel({ selected, onSelect, myUserId }: {
   selected: string | null
   onSelect: (id: string | null) => void
