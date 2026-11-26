@@ -97,6 +97,7 @@ public sealed record ProfileUpdate(string GivenName, string Surname, string? Job
 
 public sealed class DirectoryRepository(IConfiguration configuration)
 {
+    /// <summary>A new connection to the CorpDirectory database (connection string <c>Directory</c>).</summary>
     private SqlConnection Open() =>
         new(configuration.GetConnectionString("Directory")
             ?? throw new InvalidOperationException("Connection string 'Directory' is missing."));
@@ -105,6 +106,7 @@ public sealed class DirectoryRepository(IConfiguration configuration)
 
     /* ----- sign-in ----- */
 
+    /// <summary>The user with this user principal name (sign-in name), including password hash and lockout state; <c>null</c> if none.</summary>
     public async Task<UserRecord?> FindByUpnAsync(string upn)
     {
         await using var conn = Open();
@@ -112,6 +114,7 @@ public sealed class DirectoryRepository(IConfiguration configuration)
             "SELECT * FROM dbo.DirectoryUser WHERE UserPrincipalName = @Upn", new { Upn = upn });
     }
 
+    /// <summary>Every app role the user gets through their groups, e.g. <c>SyncHub.Support</c>. Token creation keeps only the requested app's roles.</summary>
     public async Task<IReadOnlyList<string>> GetRolesAsync(Guid userId)
     {
         await using var conn = Open();
@@ -124,6 +127,7 @@ public sealed class DirectoryRepository(IConfiguration configuration)
         return roles.AsList();
     }
 
+    /// <summary>Stamps the sign-in time and clears the failed-attempt count and any lockout.</summary>
     public async Task RecordSignInSuccessAsync(Guid userId)
     {
         await using var conn = Open();
@@ -148,6 +152,10 @@ public sealed class DirectoryRepository(IConfiguration configuration)
             """, new { UserId = userId, Max = maxFailures, Minutes = lockoutMinutes });
     }
 
+    /// <summary>Stores a new password hash.</summary>
+    /// <param name="mustChange">Force a change at next sign-in (used for temporary passwords from the admin centre).</param>
+    /// <param name="userId">The user.</param>
+    /// <param name="passwordHash">A hash from <see cref="Passwords.Hash"/>, never the password itself.</param>
     public async Task SetPasswordAsync(Guid userId, string passwordHash, bool mustChange)
     {
         await using var conn = Open();
@@ -162,12 +170,14 @@ public sealed class DirectoryRepository(IConfiguration configuration)
 
     /* ----- admin: users ----- */
 
+    /// <summary>Total users; the seeder only runs when this is zero.</summary>
     public async Task<int> CountUsersAsync()
     {
         await using var conn = Open();
         return await conn.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM dbo.DirectoryUser");
     }
 
+    /// <summary>Whether a user principal name is taken, for generating a unique one for a new starter.</summary>
     public async Task<bool> UpnExistsAsync(string upn)
     {
         await using var conn = Open();
@@ -176,6 +186,9 @@ public sealed class DirectoryRepository(IConfiguration configuration)
             new { Upn = upn });
     }
 
+    /// <summary>Users for the admin centre's list, filtered by name, UPN, department or job title.</summary>
+    /// <param name="status"><c>all</c>, <c>enabled</c>, <c>disabled</c> or <c>locked</c>.</param>
+    /// <param name="search">Text to match, or <c>null</c> for everyone.</param>
     public async Task<IEnumerable<UserSummary>> SearchUsersAsync(string? search, string status)
     {
         var pattern = search is null ? null : $"%{search.Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]")}%";
@@ -197,6 +210,7 @@ public sealed class DirectoryRepository(IConfiguration configuration)
             """, new { Pattern = pattern, Status = status });
     }
 
+    /// <summary>One user's profile, status and group memberships; <c>null</c> if not found.</summary>
     public async Task<UserDetail?> GetUserAsync(Guid userId)
     {
         await using var conn = Open();
@@ -214,6 +228,11 @@ public sealed class DirectoryRepository(IConfiguration configuration)
         return user;
     }
 
+    /// <summary>Creates a new starter with their group memberships and an audit entry, in one transaction.</summary>
+    /// <param name="actor">The admin doing it, from their token.</param>
+    /// <param name="user">The new starter's details and password hash.</param>
+    /// <param name="groupIds">Groups to add them to.</param>
+    /// <returns>The new user's id.</returns>
     public async Task<Guid> CreateUserAsync(NewUser user, IReadOnlyCollection<int> groupIds, string actor)
     {
         await using var conn = Open();
@@ -237,6 +256,7 @@ public sealed class DirectoryRepository(IConfiguration configuration)
         return userId;
     }
 
+    /// <summary>Updates job title, department, office and similar profile fields.</summary>
     public async Task UpdateProfileAsync(Guid userId, ProfileUpdate p)
     {
         await using var conn = Open();
@@ -275,6 +295,7 @@ public sealed class DirectoryRepository(IConfiguration configuration)
                 toRemove.Select(id => names.GetValueOrDefault(id, $"#{id}")).ToArray());
     }
 
+    /// <summary>Adds group memberships inside the caller's transaction.</summary>
     private static async Task InsertMembershipsAsync(SqlConnection conn, System.Data.Common.DbTransaction tx,
         Guid userId, IEnumerable<int> groupIds, string actor)
     {
@@ -287,6 +308,7 @@ public sealed class DirectoryRepository(IConfiguration configuration)
         }
     }
 
+    /// <summary>Enables or disables an account. Disabling is how a leaver loses access (existing tokens still live until they expire).</summary>
     public async Task SetEnabledAsync(Guid userId, bool enabled)
     {
         await using var conn = Open();
@@ -295,6 +317,7 @@ public sealed class DirectoryRepository(IConfiguration configuration)
             new { UserId = userId, Enabled = enabled });
     }
 
+    /// <summary>Clears a lockout and the failed-attempt count.</summary>
     public async Task UnlockAsync(Guid userId)
     {
         await using var conn = Open();
@@ -305,6 +328,7 @@ public sealed class DirectoryRepository(IConfiguration configuration)
 
     /* ----- groups and audit ----- */
 
+    /// <summary>Security groups with the app role each grants and its member count.</summary>
     public async Task<IEnumerable<GroupRow>> GetGroupsAsync()
     {
         await using var conn = Open();
@@ -318,6 +342,7 @@ public sealed class DirectoryRepository(IConfiguration configuration)
             """);
     }
 
+    /// <summary>Group id for each app role, used by the seeder to put demo users in the right groups.</summary>
     public async Task<IReadOnlyDictionary<string, int>> GetGroupIdsByRoleAsync()
     {
         await using var conn = Open();
@@ -325,6 +350,7 @@ public sealed class DirectoryRepository(IConfiguration configuration)
         return rows.ToDictionary(r => r.AppRole, r => r.GroupId);
     }
 
+    /// <summary>Writes an audit event (who did what to whom), shown in the admin centre's audit log.</summary>
     public async Task AuditAsync(string actor, string action, string? targetUpn, string? detail)
     {
         await using var conn = Open();
@@ -334,6 +360,7 @@ public sealed class DirectoryRepository(IConfiguration configuration)
                   Detail = detail is { Length: > 1000 } ? detail[..1000] : detail });
     }
 
+    /// <summary>Most recent audit events, optionally for one user only.</summary>
     public async Task<IEnumerable<AuditRow>> GetAuditAsync(int top, string? targetUpn)
     {
         await using var conn = Open();

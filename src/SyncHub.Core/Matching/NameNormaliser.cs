@@ -28,6 +28,11 @@ public static class NameNormaliser
     public static string Tidy(string name) =>
         string.Join(' ', name.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
+    /// <summary>
+    /// Upper-cases; drops apostrophes and full stops; turns other punctuation into spaces; standardises
+    /// legal words ("&amp;" to "AND", "LIMITED" to "LTD", "PUBLIC LIMITED COMPANY" to "PLC"); removes a
+    /// leading "THE". Stored with each client as <c>NormalisedName</c> for duplicate matching.
+    /// </summary>
     public static string Normalise(string name)
     {
         if (string.IsNullOrWhiteSpace(name)) return string.Empty;

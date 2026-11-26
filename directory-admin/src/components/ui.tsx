@@ -31,10 +31,12 @@ const labelFor: Record<string, string> = {
   NotDuplicate: 'Not a duplicate',
 }
 
+/** A coloured badge for an account or audit status. */
 export function StatusBadge({ status }: { status: string }) {
   return <span className={`badge badge-${toneFor[status] ?? 'muted'}`}>{labelFor[status] ?? status}</span>
 }
 
+/** A titled card with optional action buttons in its header. */
 export function Panel({ title, actions, children }: { title: string; actions?: ReactNode; children: ReactNode }) {
   return (
     <section className="panel">
@@ -47,11 +49,13 @@ export function Panel({ title, actions, children }: { title: string; actions?: R
   )
 }
 
+/** A red error message; renders nothing when there is no message. */
 export function ErrorBanner({ message }: { message: string | null | undefined }) {
   if (!message) return null
   return <div className="error-banner" role="alert">{message}</div>
 }
 
+/** Placeholder text for an empty list. */
 export function Empty({ children }: { children: ReactNode }) {
   return <p className="empty">{children}</p>
 }

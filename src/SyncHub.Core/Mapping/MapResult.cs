@@ -20,8 +20,15 @@ public sealed class MapResult<T> where T : class
     public string? ErrorMessage { get; }
     public bool IsSuccess => Value is not null;
 
+    /// <summary>A successfully mapped record, ready to stage.</summary>
+    /// <param name="value">The record in the hub's shape.</param>
+    /// <param name="sourceKey">The record's key in its source system.</param>
     public static MapResult<T> Success(T value, string sourceKey) => new(value, sourceKey, null, null);
 
+    /// <summary>A record that failed mapping or validation. It becomes a dead letter for support to fix and replay.</summary>
+    /// <param name="sourceKey">The record's key in its source system.</param>
+    /// <param name="errorType">One of <see cref="MapErrorTypes"/>; groups failures on the dashboard and in metrics.</param>
+    /// <param name="errorMessage">A plain-English explanation for the support analyst.</param>
     public static MapResult<T> Failure(string sourceKey, string errorType, string errorMessage) =>
         new(null, sourceKey, errorType, errorMessage);
 }

@@ -1,5 +1,15 @@
 # Merger Sync Hub
 
+![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
+![C#](https://img.shields.io/badge/C%23-latest-239120?logo=csharp&logoColor=white)
+![SQL Server 2022](https://img.shields.io/badge/SQL%20Server-2022-CC2927?logo=microsoftsqlserver&logoColor=white)
+![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![TypeScript 5.6](https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-compose-2496ED?logo=docker&logoColor=white)
+![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-1.21-000000?logo=opentelemetry&logoColor=white)
+![Grafana 12](https://img.shields.io/badge/Grafana-12-F46800?logo=grafana&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-65%20passing-brightgreen)
+
 A working model of a problem every merged law firm faces: **two practice management systems, one firm.**
 
 - **Firm A** is a legacy UK system: an older SQL Server database with messy data, local timestamps and no foreign keys.
@@ -12,6 +22,25 @@ failures, correct bad records, replay them, review duplicates and fix mappings, 
 
 > Built as a personal project to explore the integration challenges of a law-firm merger.
 > All data is synthetic.
+
+### Versions
+
+| Area | Technology | Version |
+|---|---|---|
+| Runtime | .NET (all four services target `net10.0`), C# `latest` | 10 |
+| Web APIs | ASP.NET Core minimal APIs, JWT bearer auth | 10.0 |
+| Data access | Dapper / Microsoft.Data.SqlClient | 2.1.35 / 5.2.2 |
+| Resilience | Microsoft.Extensions.Http.Resilience (Polly) | 8.10 |
+| Database | SQL Server (Docker image `mssql/server:2022-latest`) | 2022 |
+| Front end | React / TypeScript / Vite | 18.3 / 5.6 / 5.4 |
+| Telemetry (services) | OpenTelemetry .NET SDK, OTLP exporter | 1.21.0 |
+| Telemetry (browser) | Grafana Faro Web SDK | 2.15 |
+| Monitoring | OpenTelemetry Collector (contrib) / Prometheus / Loki / Grafana / Alloy | 0.130.0 / 3.5.0 / 3.5.0 / 12.1.0 / 1.22.0 |
+| Tests | xUnit / Testcontainers.MsSql / Mvc.Testing | 2.9 / 4.17.0 / 10.0.15 |
+| Containers | Build images: .NET SDK 10.0, Node 22 (alpine); runtime: ASP.NET Core 10.0, nginx 1.27 | |
+| Reporting | SSRS, Power BI Desktop | build guides in `reports/` |
+
+Exact package versions live in each `.csproj` and `package.json`; image tags in `docker-compose.yml` and `docker/`.
 
 ---
 

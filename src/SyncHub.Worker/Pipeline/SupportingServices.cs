@@ -13,6 +13,11 @@ namespace SyncHub.Worker.Pipeline;
 public sealed class ReplayService(
     SyncHubRepository repository, MapperRegistry mappers, SyncMetrics metrics, ILogger<ReplayService> logger)
 {
+    /// <summary>
+    /// Replays everything queued, one replay run per source: maps each stored payload again, stages,
+    /// merges clients then matters (so an orphan matter can find a client replayed alongside it) with
+    /// newer-wins on, and records outcomes. A shutdown completes the run as failed instead of leaving it Running.
+    /// </summary>
     public async Task RunAsync(CancellationToken ct)
     {
         var queue = await repository.GetReplayQueueAsync();
@@ -93,6 +98,7 @@ public sealed class ReplayService(
         }
     }
 
+    /// <summary>Logs a replayed record that still fails, and updates its dead letter with the new error.</summary>
     private Task FailAgainAsync(long runId, ReplayItem item, string errorType, string message)
     {
         logger.LogWarning("Replay of {Entity} {SourceKey} failed again: {ErrorType} - {Message}",
@@ -104,6 +110,7 @@ public sealed class ReplayService(
 public sealed class DuplicateDetectionService(
     SyncHubRepository repository, IOptions<SyncOptions> options, ILogger<DuplicateDetectionService> logger)
 {
+    /// <summary>Scores all clients for likely duplicates and saves new pairs for a data steward to review.</summary>
     public async Task RunAsync()
     {
         var clients = await repository.GetClientsForMatchingAsync();
@@ -125,6 +132,7 @@ public sealed class HealthSnapshotService(
 {
     private DateTimeOffset _last = DateTimeOffset.MinValue;
 
+    /// <summary>Reads a new health snapshot if <c>Sync:HealthSnapshotMinutes</c> has passed since the last one; otherwise does nothing.</summary>
     public async Task RefreshIfDueAsync(CancellationToken ct)
     {
         var interval = TimeSpan.FromMinutes(options.Value.HealthSnapshotMinutes);
@@ -145,6 +153,7 @@ public sealed class HousekeepingService(
     private DateTimeOffset _lastReportingRefresh = DateTimeOffset.MinValue;
     private DateTimeOffset _lastPurge = DateTimeOffset.MinValue;
 
+    /// <summary>Reloads the reporting star schema if <c>Sync:ReportingRefreshMinutes</c> has passed; otherwise does nothing.</summary>
     public async Task RefreshReportingIfDueAsync()
     {
         var now = clock.GetUtcNow();
@@ -155,6 +164,7 @@ public sealed class HousekeepingService(
         logger.LogInformation("Reporting star schema refreshed");
     }
 
+    /// <summary>Purges old staging rows at most once a day, keeping <c>Sync:StagingRetentionDays</c> days.</summary>
     public async Task PurgeStagingIfDueAsync()
     {
         var now = clock.GetUtcNow();

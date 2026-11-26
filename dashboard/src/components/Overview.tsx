@@ -4,6 +4,7 @@ import type { RunEntity } from '../types'
 import { formatDateTime, number, timeAgo, usePolling } from '../util'
 import { Empty, ErrorBanner, Panel, SourceTag, StatusBadge } from './ui'
 
+/** Headline tiles on the Overview page; clicking one jumps to its tab. */
 export function SummaryTiles({ onNavigate }: { onNavigate: (tab: 'exceptions' | 'duplicates') => void }) {
   const { data, error } = usePolling(api.summary, [], 5_000)
 
@@ -42,6 +43,7 @@ export function SummaryTiles({ onNavigate }: { onNavigate: (tab: 'exceptions' | 
   )
 }
 
+/** Source against hub counts per source and entity, refreshed every few seconds. */
 export function ReconciliationPanel() {
   const { data, error } = usePolling(api.reconciliation, [], 15_000)
 
@@ -83,6 +85,7 @@ export function ReconciliationPanel() {
   )
 }
 
+/** Recent sync and replay runs; expand a run to see its per-entity counts and correlation id. */
 export function RunsPanel() {
   const [hideQuiet, setHideQuiet] = useState(true)
   const [expanded, setExpanded] = useState<number | null>(null)

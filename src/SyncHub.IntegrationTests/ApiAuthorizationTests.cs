@@ -39,6 +39,7 @@ public sealed class ApiAuthorizationTests(SqlServerFixture sql) : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    /// <summary>Tokens the API must reject, each with the reason, even though they claim the Admin role.</summary>
     public static TheoryData<string, string> BadTokens()
     {
         var otherKey = new RsaSecurityKey(RSA.Create(2048)) { KeyId = "attacker" };
@@ -163,6 +164,7 @@ public sealed class ApiAuthorizationTests(SqlServerFixture sql) : IAsyncLifetime
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    /// <summary>A fresh open dead letter under its own source, so tests can act on it without affecting others.</summary>
     private async Task<long> InsertOpenDeadLetterAsync()
     {
         await using var conn = new SqlConnection(sql.SyncHubConnectionString);

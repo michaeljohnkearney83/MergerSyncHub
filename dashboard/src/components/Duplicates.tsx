@@ -12,6 +12,7 @@ const FILTER_LABELS: Record<(typeof FILTERS)[number], string> = {
   All: 'All',
 }
 
+/** Suggested duplicate clients side by side, with confirm / not a duplicate buttons for data stewards. */
 export function DuplicatesPanel({ user, canDecide }: { user: string; canDecide: boolean }) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('Pending')
   const [error, setError] = useState<string | null>(null)

@@ -8,6 +8,8 @@ namespace SyncHub.Worker.Data;
 
 public sealed class SqlConnectionFactory(IConfiguration configuration)
 {
+    /// <summary>Creates an unopened connection from the named connection string (<c>SyncHub</c> or <c>FirmA</c>).</summary>
+    /// <exception cref="InvalidOperationException">The connection string isn't configured.</exception>
     public SqlConnection Create(string name) =>
         new(configuration.GetConnectionString(name)
             ?? throw new InvalidOperationException($"Connection string '{name}' is missing from configuration."));
@@ -52,6 +54,11 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
     private const string Db = "SyncHub";
     private const int LongCommandTimeoutSeconds = 300;
 
+    /// <summary>Records the start of a sync or replay run in ops.SyncRun.</summary>
+    /// <param name="runType"><c>Scheduled</c> or <c>Replay</c>.</param>
+    /// <param name="correlationId">Also written on every log line for this run, linking the dashboard to the logs.</param>
+    /// <param name="source">The source system being synced or replayed.</param>
+    /// <returns>The new SyncRunId, used to tag staged rows and dead letters.</returns>
     public async Task<long> StartRunAsync(string source, string runType, Guid correlationId)
     {
         await using var conn = connections.Create(Db);
@@ -60,6 +67,10 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
             commandType: CommandType.StoredProcedure);
     }
 
+    /// <summary>Marks a run finished with its final status (<c>Succeeded</c>, <c>SucceededWithErrors</c> or <c>Failed</c>).</summary>
+    /// <param name="errorMessage">Why the run failed, shown on the dashboard; <c>null</c> on success.</param>
+    /// <param name="syncRunId">The run.</param>
+    /// <param name="status"><c>Succeeded</c>, <c>SucceededWithErrors</c> or <c>Failed</c>.</param>
     public async Task CompleteRunAsync(long syncRunId, string status, string? errorMessage)
     {
         await using var conn = connections.Create(Db);
@@ -68,6 +79,7 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
             commandType: CommandType.StoredProcedure);
     }
 
+    /// <summary>Saves the per-entity counts for a run (read, staged, inserted, updated, failed, and the source total used by reconciliation).</summary>
     public async Task SaveEntityResultAsync(long syncRunId, EntitySyncResult r)
     {
         await using var conn = connections.Create(Db);
@@ -81,6 +93,8 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
             commandType: CommandType.StoredProcedure);
     }
 
+    /// <summary>The highest source timestamp already merged for a source and entity, in the source's own time basis.</summary>
+    /// <returns><c>null</c> before the first successful sync, which means a full load.</returns>
     public async Task<DateTime?> GetWatermarkAsync(string source, string entity)
     {
         await using var conn = connections.Create(Db);
@@ -88,6 +102,7 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
             new { Source = source, Entity = entity }, commandType: CommandType.StoredProcedure);
     }
 
+    /// <summary>Moves the watermark. Only call this after the merge has committed, so a failure re-reads the same records.</summary>
     public async Task SetWatermarkAsync(string source, string entity, DateTime lastModified)
     {
         await using var conn = connections.Create(Db);
@@ -96,6 +111,10 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
             commandType: CommandType.StoredProcedure);
     }
 
+    /// <summary>
+    /// Records a record that couldn't be mapped or merged, with its raw payload so support can fix and replay it.
+    /// If the record already has an open dead letter, that one is updated rather than a duplicate added.
+    /// </summary>
     public async Task UpsertDeadLetterAsync(long syncRunId, string source, string entity, string sourceKey,
         string errorType, string errorMessage, string payload)
     {
@@ -109,6 +128,7 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
             commandType: CommandType.StoredProcedure);
     }
 
+    /// <summary>Dead letters that support has queued for replay (status <c>ReplayRequested</c>), with their payloads.</summary>
     public async Task<IReadOnlyList<ReplayItem>> GetReplayQueueAsync()
     {
         await using var conn = connections.Create(Db);
@@ -118,6 +138,8 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
 
     /* ---------------- Staging (SqlBulkCopy) ---------------- */
 
+    /// <summary>Writes mapped clients to stg.Client with SqlBulkCopy, tagged with the run id the merge will read.</summary>
+    /// <returns>The number of rows staged.</returns>
     public async Task<int> BulkStageClientsAsync(long syncRunId, IReadOnlyCollection<StagedClient> clients, CancellationToken ct)
     {
         if (clients.Count == 0) return 0;
@@ -146,6 +168,8 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
         return clients.Count;
     }
 
+    /// <summary>Writes mapped matters to stg.Matter with SqlBulkCopy, tagged with the run id the merge will read.</summary>
+    /// <returns>The number of rows staged.</returns>
     public async Task<int> BulkStageMattersAsync(long syncRunId, IReadOnlyCollection<StagedMatter> matters, CancellationToken ct)
     {
         if (matters.Count == 0) return 0;
@@ -177,6 +201,7 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
         return matters.Count;
     }
 
+    /// <summary>Bulk-inserts a table into staging in one batch, mapping columns by name so identity and default columns are left to SQL Server.</summary>
     private async Task BulkCopyAsync(string destination, DataTable table, CancellationToken ct)
     {
         await using var conn = connections.Create(Db);
@@ -196,6 +221,14 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
 
     /* ---------------- Merge ---------------- */
 
+    /// <summary>
+    /// Runs the set-based MERGE from staging into core for one entity and run. Idempotent: unchanged rows
+    /// (same row hash) aren't written, so re-running a batch is safe.
+    /// </summary>
+    /// <param name="entity"><see cref="Entities.Client"/> or <see cref="Entities.Matter"/>.</param>
+    /// <param name="isReplay">Apply newer-wins: a replayed payload never overwrites a newer version. Scheduled reads skip it.</param>
+    /// <param name="syncRunId">The run whose staged rows to merge.</param>
+    /// <returns>Rows inserted, updated, and failed (orphan matters dead-lettered during the merge).</returns>
     public async Task<MergeResult> MergeAsync(string entity, long syncRunId, bool isReplay = false)
     {
         var proc = entity switch
@@ -212,6 +245,7 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
 
     /* ---------------- Health snapshot (monitoring) ---------------- */
 
+    /// <summary>Reads the state behind the SQL-backed gauges: open dead letters, stuck runs and reconciliation.</summary>
     public async Task<HealthSnapshot> GetHealthSnapshotAsync(DateTimeOffset takenAt, CancellationToken ct)
     {
         await using var conn = connections.Create(Db);
@@ -234,6 +268,7 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
 
     /* ---------------- Duplicates, reporting, housekeeping ---------------- */
 
+    /// <summary>Every client in the hub with the fields duplicate detection needs (normalised name, postcode, source).</summary>
     public async Task<IReadOnlyList<ClientForMatching>> GetClientsForMatchingAsync()
     {
         await using var conn = connections.Create(Db);
@@ -242,6 +277,11 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
         return rows.AsList();
     }
 
+    /// <summary>
+    /// Saves suggested duplicate pairs in one round trip (a table-valued parameter). Pairs a person has
+    /// already decided are left alone.
+    /// </summary>
+    /// <returns>How many new pairs were added for review.</returns>
     public async Task<int> SaveMatchCandidatesAsync(IReadOnlyCollection<MatchCandidate> candidates)
     {
         if (candidates.Count == 0) return 0;
@@ -261,6 +301,7 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
             commandType: CommandType.StoredProcedure);
     }
 
+    /// <summary>Rebuilds the reporting star schema (rpt.*) that SSRS and Power BI read.</summary>
     public async Task LoadReportingAsync()
     {
         await using var conn = connections.Create(Db);
@@ -268,6 +309,7 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
             commandTimeout: LongCommandTimeoutSeconds);
     }
 
+    /// <summary>Deletes staging rows from runs older than <paramref name="keepDays"/> days, in chunks.</summary>
     public async Task PurgeStagingAsync(int keepDays)
     {
         await using var conn = connections.Create(Db);
@@ -275,11 +317,13 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
             commandType: CommandType.StoredProcedure, commandTimeout: LongCommandTimeoutSeconds);
     }
 
+    /// <summary>Opens a connection to SyncHub; throws if the database is unreachable or the login fails.</summary>
     public async Task CheckConnectivityAsync(CancellationToken ct)
     {
         await using var conn = connections.Create(Db);
         await conn.OpenAsync(ct);
     }
 
+    /// <summary>Shortens text to a column's maximum length so a long error message can't fail the insert.</summary>
     private static string Truncate(string value, int max) => value.Length <= max ? value : value[..max];
 }

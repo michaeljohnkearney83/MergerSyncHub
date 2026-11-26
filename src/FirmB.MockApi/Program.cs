@@ -89,6 +89,7 @@ app.MapPost("/admin/simulate-changes", (FirmBStore store, int? count) =>
 
 app.Run();
 
+// Parses the modifiedSince query value as UTC. Absent is fine (all records); malformed is a 400.
 static bool TryParseSince(string? value, out DateTime? since)
 {
     since = null;
@@ -102,6 +103,7 @@ static bool TryParseSince(string? value, out DateTime? since)
 /// <summary>Background "users" editing matters in Firm B every few seconds.</summary>
 internal sealed class ChangeSimulator(FirmBStore store, IConfiguration config, ILogger<ChangeSimulator> logger) : BackgroundService
 {
+    /// <summary>Every <c>ChangeSimulator:IntervalSeconds</c>, edits a few matters, until shutdown.</summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var interval = TimeSpan.FromSeconds(config.GetValue("ChangeSimulator:IntervalSeconds", 20));

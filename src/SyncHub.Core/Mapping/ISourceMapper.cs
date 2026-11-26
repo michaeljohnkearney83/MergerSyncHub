@@ -9,9 +9,16 @@ namespace SyncHub.Core.Mapping;
 /// </summary>
 public interface ISourceMapper
 {
+    /// <summary>The source system this mapper handles, e.g. <see cref="Models.SourceSystems.FirmA"/>.</summary>
     string Source { get; }
 
+    /// <summary>Maps one client from its raw source JSON. Never throws for bad data: returns a failure instead.</summary>
+    /// <param name="sourceKey">The client's key in the source system.</param>
+    /// <param name="rawJson">The record exactly as read from the source, or as edited by support before a replay.</param>
     MapResult<StagedClient> MapClient(string sourceKey, string rawJson);
 
+    /// <summary>Maps one matter from its raw source JSON. Never throws for bad data: returns a failure instead.</summary>
+    /// <param name="sourceKey">The matter's key in the source system.</param>
+    /// <param name="rawJson">The record exactly as read from the source, or as edited by support before a replay.</param>
     MapResult<StagedMatter> MapMatter(string sourceKey, string rawJson);
 }

@@ -306,23 +306,29 @@ app.Run();
 
 /* ---------------- helpers ---------------- */
 
+// An error in the shape both React apps expect: { error: code, message }.
 static IResult Error(int status, string code, string message) =>
     Results.Json(new { error = code, message }, statusCode: status);
 
+// Lower-cases a sign-in name and adds the firm's domain if the user typed only "first.last".
 static string NormaliseUpn(string username, string domain)
 {
     var trimmed = username.Trim().ToLowerInvariant();
     return trimmed.Contains('@') ? trimmed : $"{trimmed}@{domain}";   // allow "first.last" without the domain
 }
 
+// Trims and collapses whitespace in a form field; blank becomes null.
 static string? Tidy(string? value) =>
     string.IsNullOrWhiteSpace(value) ? null : Regex.Replace(value.Trim(), @"\s+", " ");
 
+// Letters only, lower case, accents removed: "Siân O'Neil" -> "sianoneil", for building a new UPN.
 static string Slug(string name) =>
     Regex.Replace(name.Normalize(System.Text.NormalizationForm.FormD), @"[^A-Za-z]", "").ToLowerInvariant();
 
+// The signed-in admin, from the token, for the audit log.
 static string Actor(ClaimsPrincipal me) => me.FindFirst("preferred_username")?.Value ?? "unknown";
 
+// True if an admin is acting on their own account (they can't disable or demote themselves).
 static bool IsSelf(ClaimsPrincipal me, UserDetail user) =>
     string.Equals(me.FindFirst("sub")?.Value, user.UserId.ToString(), StringComparison.OrdinalIgnoreCase);
 

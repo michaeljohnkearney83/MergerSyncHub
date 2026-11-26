@@ -10,6 +10,11 @@ public static class SyncJson
     // camelCase, case-insensitive on read
     public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
 
+    /// <summary>
+    /// Deserialises a payload without throwing, so a malformed record becomes a dead letter
+    /// instead of failing the whole batch.
+    /// </summary>
+    /// <returns><c>true</c> with <paramref name="value"/> set, or <c>false</c> with a readable <paramref name="error"/>.</returns>
     public static bool TryDeserialize<T>(string json, [NotNullWhen(true)] out T? value, out string error) where T : class
     {
         try
@@ -51,6 +56,11 @@ public static class CountryNormaliser
         ["United States of America"] = "United States",
     };
 
+    /// <summary>
+    /// Maps the many spellings of the same country ("UK", "GB", "England") to one name, so reports and
+    /// duplicate matching aren't split by spelling. Unknown values are kept as entered.
+    /// </summary>
+    /// <returns>The canonical name, the trimmed input if unknown, or <c>null</c> if blank.</returns>
     public static string? Normalise(string? country)
     {
         if (string.IsNullOrWhiteSpace(country)) return null;
@@ -61,6 +71,11 @@ public static class CountryNormaliser
 
 public static class Text
 {
+    /// <summary>
+    /// Trims, collapses repeated spaces and truncates to the hub column's length, so a long source
+    /// value can't fail the bulk insert.
+    /// </summary>
+    /// <returns>The cleaned text, or <c>null</c> if blank.</returns>
     public static string? Clean(string? value, int maxLength)
     {
         if (string.IsNullOrWhiteSpace(value)) return null;
@@ -68,6 +83,8 @@ public static class Text
         return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
     }
 
+    /// <summary>Parses a <c>yyyy-MM-dd</c> date. A missing date is allowed; a present but malformed one is not.</summary>
+    /// <returns><c>true</c> if blank or valid (with <paramref name="date"/> set when present); <c>false</c> if malformed.</returns>
     public static bool TryParseIsoDate(string? value, out DateTime? date)
     {
         date = null;
@@ -89,6 +106,7 @@ public static class UkTime
 {
     private static readonly TimeZoneInfo London = FindLondon();
 
+    /// <summary>UK time zone, by IANA id where available and the Windows id otherwise.</summary>
     private static TimeZoneInfo FindLondon()
     {
         // IANA id works on Windows 10+ with .NET 6+; fall back to the Windows id just in case
@@ -96,6 +114,11 @@ public static class UkTime
         return TimeZoneInfo.FindSystemTimeZoneById("GMT Standard Time");
     }
 
+    /// <summary>
+    /// Converts a UK local timestamp from the legacy system to UTC. Times that don't exist (the skipped
+    /// hour in March) move forward an hour; repeated times (the extra hour in October) are read as GMT.
+    /// That October ambiguity is why scheduled merges don't use newer-wins (see usp_MergeClients).
+    /// </summary>
     public static DateTime ToUtc(DateTime ukLocal)
     {
         var local = DateTime.SpecifyKind(ukLocal, DateTimeKind.Unspecified);

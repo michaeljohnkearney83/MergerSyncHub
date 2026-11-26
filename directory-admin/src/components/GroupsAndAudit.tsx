@@ -4,6 +4,7 @@ import { formatDateTime, usePolling } from '../util'
 import { appName } from './Shared'
 import { Empty, ErrorBanner, Panel } from './ui'
 
+/** Security groups and the app role each one grants. */
 export function GroupsPanel() {
   const { data, error } = usePolling(api.groups, [], 30_000)
 
@@ -28,6 +29,7 @@ export function GroupsPanel() {
   )
 }
 
+/** The directory audit log: who changed which account, and when. */
 export function AuditPanel() {
   const [upn, setUpn] = useState('')
   const { data, error } = usePolling(() => api.audit(300, upn.trim() || undefined), [upn], 10_000)

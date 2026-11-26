@@ -23,6 +23,7 @@ public sealed class SyncCycle(
     SyncMetrics metrics,
     ILogger<SyncCycle> logger)
 {
+    /// <summary>Runs every step of one cycle in order: replay, sync each source, duplicate detection, reporting refresh, staging purge, health snapshot.</summary>
     public async Task RunAsync(CancellationToken ct)
     {
         await StepAsync("Replay queued dead letters", () => replay.RunAsync(ct), ct);
@@ -36,6 +37,7 @@ public sealed class SyncCycle(
         await StepAsync("Health snapshot", () => health.RefreshIfDueAsync(ct), ct);
     }
 
+    /// <summary>Runs one step; logs and counts a failure instead of throwing, so the remaining steps still run.</summary>
     private async Task StepAsync(string name, Func<Task> step, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -58,6 +60,11 @@ public sealed class SyncWorker(
     IOptions<SyncOptions> options,
     ILogger<SyncWorker> logger) : BackgroundService
 {
+    /// <summary>
+    /// Checks the database once, then runs a cycle immediately and every <c>Sync:IntervalSeconds</c> until shutdown.
+    /// Each cycle gets its own DI scope. Starts the time-since-success gauges first, so a worker that can't
+    /// reach SQL still trips the SyncStale alert.
+    /// </summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // Before the database check, so time_since_success grows from start-up even if the worker
@@ -91,6 +98,8 @@ public sealed class SyncWorker(
         }
     }
 
+    /// <summary>Checks the SyncHub database is reachable before the first cycle.</summary>
+    /// <returns><c>false</c> (after logging a critical error with the likely fix) if it can't be reached.</returns>
     private async Task<bool> CanReachDatabaseAsync(CancellationToken ct)
     {
         try

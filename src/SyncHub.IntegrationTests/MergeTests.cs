@@ -16,6 +16,7 @@ namespace SyncHub.IntegrationTests;
 [Collection("sql")]
 public sealed class MergeTests(SqlServerFixture sql)
 {
+    /// <summary>The worker's real repository, pointed at the test database.</summary>
     private SyncHubRepository Repository()
     {
         var config = new ConfigurationBuilder()
@@ -24,6 +25,7 @@ public sealed class MergeTests(SqlServerFixture sql)
         return new SyncHubRepository(new SqlConnectionFactory(config));
     }
 
+    /// <summary>A valid mapped client, as a mapper would produce it.</summary>
     private static StagedClient Client(string source, string key, string name, DateTime modifiedUtc) =>
         new(source, key, name, name.ToUpperInvariant(), "United Kingdom", "L1 1AA",
             new DateTime(2020, 1, 1), IsActive: true, modifiedUtc, RawPayload: "{}");
@@ -39,6 +41,7 @@ public sealed class MergeTests(SqlServerFixture sql)
         return result;
     }
 
+    /// <summary>The client's name as it now stands in core.Client.</summary>
     private async Task<string> HubNameAsync(string source, string key)
     {
         await using var conn = new SqlConnection(sql.SyncHubConnectionString);
