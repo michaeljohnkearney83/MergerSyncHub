@@ -64,7 +64,8 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
 ## Conventions
 
 - **C#:** primary constructors, records for data, file-scoped namespaces, nullable enabled, Dapper with
-  parameterised SQL (no string-built SQL from input), stored procedures for set-based work.
+  parameterised SQL (no string-built SQL from input), stored procedures for set-based work. String parameters
+  compared with `varchar` columns go through `Ansi(value, length)` (a `DbString`), or SQL Server scans instead of seeking.
 - **Identity comes from the token**, never from request bodies (`ClaimsPrincipal`, `name` claim).
 - **Mapping never throws for bad data**: return `MapResult.Failure`, which becomes a dead letter.
   Replay uses the same mapper as live sync.
