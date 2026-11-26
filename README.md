@@ -188,7 +188,8 @@ cd database
 # .\setup.ps1 -Server "localhost,14333" -User sa -Password '<your sa password>'   # Docker
 ```
 
-Or open the six numbered scripts in SSMS and run them in order. Firm A ends up with about 375 clients and 75,000 matters.
+Or open scripts 01–06 in SSMS and run them in order. Firm A ends up with about 375 clients and 75,000 matters.
+(07, the reporting login, needs its password as a sqlcmd variable, so run it through `setup.ps1` or as shown in the script's header.)
 
 **For Power BI and SSRS**, `setup.ps1` also creates a read-only reporting login, `synchub_reporting`, when it's given a
 password: set `REPORTING_SQL_PASSWORD` (in `.env` for Docker, where `db-init` applies it on every start) or pass
