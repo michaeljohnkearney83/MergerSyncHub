@@ -31,6 +31,7 @@ keep the "why" comments.
 | `docker/` | `dotnet.Dockerfile` (all four services, `PROJECT` build arg), `web.Dockerfile` (both React apps), `nginx.conf`, `db-init.sh` |
 | `monitoring/` | Collector, Prometheus (+ `alert-rules.yml`), Loki, Alloy (`alloy.alloy`, Faro receiver), Grafana provisioning and `dashboards/synchub.json` |
 | `docs/interview-guide.md` | Maps the project to interview questions; STAR answers |
+| `docs/glossary.md` | Plain-English glossary: law-firm terms (client, matter...) and integration terms (dead letter, replay, reconciliation...) |
 | `.claude/agents/sql-reviewer.md` | Read-only subagent that reviews T-SQL and Dapper SQL against the SQL conventions below |
 | `.claude/agents/observability-advisor.md` | Read-only subagent that suggests logs, metrics, alerts and Grafana panels |
 | `.claude/agents/coding-standards.md` | Read-only gate agent (Sonnet): blocking/advisory rules, last line `VERDICT: PASS` or `VERDICT: FAIL` |
@@ -114,6 +115,9 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
   wrong `<param>` names are build warnings; CS1591 (missing docs) is off. Top-level `Program.cs` helpers are local
   functions, which can't take `///`, so they get `//`.
 - **Versions:** when you upgrade a package, SDK or image, update the Versions table and badges at the top of README.
+- **README navigation:** the Contents menu links to headings by GitHub's generated anchors (lower case, punctuation
+  dropped, spaces to hyphens: `### 3. Start everything` is `#3-start-everything`). Renaming or adding a heading means
+  updating the menu. New domain or support terms go in `docs/glossary.md`; the README's Key terms stays at about seven.
 - **UK English** in UI text and docs. Keep comments that explain trade-offs.
 
 ## Gotchas already hit

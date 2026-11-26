@@ -23,6 +23,31 @@ failures, correct bad records, replay them, review duplicates and fix mappings, 
 > Built as a personal project to explore the integration challenges of a law-firm merger.
 > All data is synthetic.
 
+### Contents
+
+| Understand it | Run it | Go deeper |
+|---|---|---|
+| [Key terms](#key-terms) | [Prerequisites](#prerequisites) | [Monitoring](#6-monitoring-optional-prometheus-loki-and-grafana) |
+| [Versions](#versions) | [Create the databases](#1-create-the-databases) | [Git hooks](#5-git-hooks-for-feature-branches-optional) |
+| [Architecture](#architecture) | [Run the tests](#2-run-the-tests) | [Design decisions](#design-decisions-the-why) |
+| [What's in the repo](#whats-in-the-repo) | [Start everything (Docker or by hand)](#3-start-everything) | [Known limitations](#known-limitations-and-what-id-do-next) |
+| [Full glossary](docs/glossary.md) | [Sign in (demo accounts)](#4-sign-in) | [Interview guide](docs/interview-guide.md) |
+| | [10-minute demo](#a-10-minute-demo) | |
+
+### Key terms
+
+| Term | In one line |
+|---|---|
+| **Client** | Who the firm acts for, e.g. "Acme Holdings Ltd". |
+| **Matter** | One piece of legal work for a client (a case, a deal). Firms bill and check conflicts per matter. |
+| **Sync run** | One pass that reads a source's changes and merges them into the hub. |
+| **Dead letter / exception** | A record that failed validation, parked with its data and the reason, so the rest carries on. Support sees these on the **Exceptions** tab. |
+| **Replay** | Re-processing a dead letter, usually after correcting it, through the same rules as live data. |
+| **Reconciliation** | Proving nothing was lost: source total = in hub + open exceptions + ignored. |
+| **Duplicate candidate** | Two client records that are probably the same organisation; a data steward confirms or rejects. |
+
+More terms (watermark, look-back, staging, idempotent, orphan matter, roles...) are in the **[glossary](docs/glossary.md)**.
+
 ### Versions
 
 | Area | Technology | Version |
@@ -91,6 +116,8 @@ flowchart LR
 3. **Detect** possible duplicate clients.
 4. **Refresh** the reporting star schema (every 5 minutes by default).
 
+<sub>[↑ Back to top](#merger-sync-hub)</sub>
+
 ## What's in the repo
 
 | Path | What it is |
@@ -117,6 +144,8 @@ flowchart LR
 | `.claude/agents/coding-standards.md` | Claude Code subagent that checks a diff against the project's coding standards (PASS / FAIL) |
 | `.githooks/pre-push` | Runs the coding-standards agent before any push to a `feature/*` branch |
 | `.githooks/post-commit` | Merges the latest `main` into a `feature/*` branch after each commit |
+
+<sub>[↑ Back to top](#merger-sync-hub)</sub>
 
 ---
 
@@ -314,6 +343,8 @@ How it fits together:
   empty to switch telemetry off. If the collector isn't running, the services carry on as normal.
 - Ports are offset (3033, 14317/14318) because 3000 and 4317/4318 are commonly used by other local stacks.
 
+<sub>[↑ Back to top](#merger-sync-hub)</sub>
+
 ---
 
 ## A 10-minute demo
@@ -345,6 +376,8 @@ How it fits together:
 8. **Reporting.** Show the SSRS exceptions report and the Power BI overview, including **View as** a
    UK-only user for row-level security.
 
+<sub>[↑ Back to top](#merger-sync-hub)</sub>
+
 ---
 
 ## Design decisions (the "why")
@@ -370,6 +403,8 @@ How it fits together:
 | **Raw practice area codes kept; mapped at reporting time** | Fixing a mapping corrects history on the next refresh without re-syncing. |
 | **Star schema for reporting** | Simple DAX, fast visuals, and the same dimensions serve SSRS and Power BI. |
 
+<sub>[↑ Back to top](#merger-sync-hub)</sub>
+
 ## Known limitations and what I'd do next
 
 - **Deletes** aren't handled. The sources only soft-close records. Next step: SQL Server Change Tracking on Firm A, and a deletions feed or periodic key comparison for Firm B.
@@ -384,3 +419,5 @@ How it fits together:
 - **Observability.** Metrics and logs are in place (see step 6). Next: traces (Tempo, or Application Insights in Azure), an Alertmanager route for the alert rules, and a gauge for open dead letters and the reconciliation "Investigate" status, which today live only in SQL.
 - **Hosting.** The worker could run as a Windows service, a container, or as Azure Functions (a timer trigger for the sync and a queue trigger for replays). The trade-offs are worth discussing: long-running full loads and on-premises SQL access favour a service.
 - **Matching.** Add a second blocking key (postcode) to catch typos in the first letters of a name, and give reviewers a "merge" action that writes the decision back to a master data service.
+
+<sub>[↑ Back to top](#merger-sync-hub)</sub>
