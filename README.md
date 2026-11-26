@@ -150,10 +150,22 @@ docker compose --profile app --profile monitoring up -d --build
 - A one-off `db-init` container runs the database scripts the first time only (when the databases don't
   exist yet), so restarting the stack never wipes your data.
 - The directory's token signing key lives on a Docker volume, so restarts don't sign everyone out.
-- After changing code, rebuild just what changed, e.g. `docker compose --profile app up -d --build worker`.
+- After changing code, rebuild just what changed, e.g. `docker compose --profile app up -d --build sync-worker`.
 - Stop with `docker compose --profile app --profile monitoring down` (add `-v` only if you want to delete the data).
 
-Inside Docker the Support API reaches the directory as `http://directory:8080`, but tokens are issued as
+| Docker service | Project | Port |
+|---|---|---|
+| `directory-api` | `src/CorpDirectory.Api` (mock corporate directory) | 5090 |
+| `directory-web` | `directory-admin/` (directory admin centre) | 5174 |
+| `support-api` | `src/SyncHub.SupportApi` | 5081 |
+| `support-web` | `dashboard/` (support dashboard) | 5173 |
+| `firmb-api` | `src/FirmB.MockApi` | 5070 |
+| `sync-worker` | `src/SyncHub.Worker` | (none) |
+| `db-init` | `database/` scripts, runs once and exits | (none) |
+
+Names follow `<area>-<kind>` so each API sits next to its web front end; containers are `synchub-<service>`.
+
+Inside Docker the Support API reaches the directory as `http://directory-api:8080`, but tokens are issued as
 `http://localhost:5090` (the address the browser uses). So the Support API is given both: `Auth:Authority` (the
 issuer it trusts) and `Auth:MetadataAddress` (where it can actually download the keys). The directory's discovery
 document builds its key URL from the address it was called on, so that works whichever name is used.

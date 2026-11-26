@@ -23,6 +23,11 @@
 # It publishes the same host ports as `dotnet run` / `npm run dev`, so stop those first.
 # Day-to-day development stays outside Docker (faster edit-run loop); see README step 3.
 
+# Naming: <area>-<kind>, so each API sits next to its web front end in `docker ps`:
+#   directory-api / directory-web, support-api / support-web, firmb-api, sync-worker, db-init.
+# Service names are also the hostnames other containers use (http://directory-api:8080).
+# Image names stay as they were and the .NET project names are unchanged.
+
 # Settings shared by the .NET services. Connection strings use the "sql" service name and the
 # container port; the sa login is fine for a local demo (a real deployment gets one login per app).
 x-dotnet: &dotnet
@@ -62,6 +67,7 @@ services:
   db-init:
     # Same image as SQL Server: it already contains sqlcmd, so there's no extra image to pull.
     image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: synchub-db-init
     profiles: ["app"]
     entrypoint: ["/bin/bash", "/db-init.sh"]
     environment:
@@ -73,14 +79,14 @@ services:
       sql:
         condition: service_healthy
 
-  directory:
+  directory-api:
     <<: *dotnet
     build:
       context: .
       dockerfile: docker/dotnet.Dockerfile
       args: { PROJECT: CorpDirectory.Api }
     image: synchub/corp-directory
-    container_name: synchub-directory
+    container_name: synchub-directory-api
     environment:
       <<: *otel
       ConnectionStrings__Directory: "Server=sql,1433;Database=CorpDirectory;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Application Name=CorpDirectory.Api"
@@ -92,21 +98,21 @@ services:
     ports:
       - "5090:8080"
 
-  firmb:
+  firmb-api:
     <<: *dotnet
     build:
       context: .
       dockerfile: docker/dotnet.Dockerfile
       args: { PROJECT: FirmB.MockApi }
     image: synchub/firmb-mock
-    container_name: synchub-firmb
+    container_name: synchub-firmb-api
     depends_on: {}
     environment:
       <<: *otel
     ports:
       - "5070:8080"
 
-  worker:
+  sync-worker:
     <<: *dotnet
     build:
       context: .
@@ -115,17 +121,17 @@ services:
         PROJECT: SyncHub.Worker
         RUNTIME_IMAGE: mcr.microsoft.com/dotnet/runtime:10.0
     image: synchub/worker
-    container_name: synchub-worker
+    container_name: synchub-sync-worker
     depends_on:
       db-init:
         condition: service_completed_successfully
-      firmb:
+      firmb-api:
         condition: service_started
     environment:
       <<: *otel
       ConnectionStrings__SyncHub: "Server=sql,1433;Database=SyncHub;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Application Name=SyncHub.Worker"
       ConnectionStrings__FirmA: "Server=sql,1433;Database=FirmA_Legacy;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;ApplicationIntent=ReadOnly;Application Name=SyncHub.Worker"
-      FirmB__BaseUrl: "http://firmb:8080/"
+      FirmB__BaseUrl: "http://firmb-api:8080/"
 
   support-api:
     <<: *dotnet
@@ -138,7 +144,7 @@ services:
     depends_on:
       db-init:
         condition: service_completed_successfully
-      directory:
+      directory-api:
         condition: service_started
     environment:
       <<: *otel
@@ -146,11 +152,11 @@ services:
       # Accept tokens issued as http://localhost:5090 (what the browser signed in to), but fetch the
       # signing keys from the directory's container address: inside Docker, localhost is this container.
       Auth__Authority: "http://localhost:5090"
-      Auth__MetadataAddress: "http://directory:8080/.well-known/openid-configuration"
+      Auth__MetadataAddress: "http://directory-api:8080/.well-known/openid-configuration"
     ports:
       - "5081:8080"
 
-  dashboard:
+  support-web:
     build:
       context: .
       dockerfile: docker/web.Dockerfile
@@ -159,13 +165,13 @@ services:
         VITE_API_URL: "http://localhost:5081"
         VITE_DIRECTORY_URL: "http://localhost:5090"
     image: synchub/dashboard
-    container_name: synchub-dashboard
+    container_name: synchub-support-web
     profiles: ["app"]
     restart: unless-stopped
     ports:
       - "5173:80"
 
-  directory-admin:
+  directory-web:
     build:
       context: .
       dockerfile: docker/web.Dockerfile
@@ -173,7 +179,7 @@ services:
         APP: directory-admin
         VITE_DIRECTORY_URL: "http://localhost:5090"
     image: synchub/directory-admin
-    container_name: synchub-directory-admin
+    container_name: synchub-directory-web
     profiles: ["app"]
     restart: unless-stopped
     ports:

@@ -55,6 +55,9 @@ keep the "why" comments.
   secrets don't apply: connection strings come from compose, built from `MSSQL_SA_PASSWORD` in `.env`, using `sql,1433`.
   `db-init` only runs the scripts when the databases are missing. The signing key is on the `synchub-directory-keys`
   volume (separate from the local `signing-key.pem`, so tokens from one don't work in the other).
+- **Docker names** follow `<area>-<kind>`: `directory-api`, `directory-web` (admin centre, 5174), `support-api`,
+  `support-web` (dashboard, 5173), `firmb-api`, `sync-worker`, `db-init`; containers are `synchub-<service>`.
+  Service names are the in-network hostnames, so renaming one means updating the URLs that point at it in compose.
 - Demo accounts (password `Welcome2SyncHub!`): `it.admin`, `alex.morgan` (Support), `priya.shah`
   (Data Steward), `tom.reid` (Viewer), `jordan.lee` (no access), `sam.carter` (disabled).
 
@@ -105,7 +108,7 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
 - The Support API caches the directory's signing keys; if the directory wasn't up, it retries after 30s.
 - Deleting `src/CorpDirectory.Api/signing-key.pem` invalidates all issued tokens (users sign in again).
 - Inside Docker, `localhost` is the container itself. The Support API trusts issuer `http://localhost:5090` but loads
-  keys via `Auth:MetadataAddress` (`http://directory:8080/...`); the discovery document builds `jwks_uri` from the
+  keys via `Auth:MetadataAddress` (`http://directory-api:8080/...`); the discovery document builds `jwks_uri` from the
   request's host for this reason. React apps get `localhost` URLs at build time, because the browser runs on the host.
 - `docker/*.sh` must keep LF line endings (`.gitattributes`); CRLF breaks them in Linux containers.
 
