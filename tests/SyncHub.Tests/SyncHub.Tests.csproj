@@ -12,6 +12,6 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\SyncHub.Core\SyncHub.Core.csproj" />
+    <ProjectReference Include="..\..\src\Libraries\SyncHub.Core\SyncHub.Core.csproj" />
   </ItemGroup>
 </Project>

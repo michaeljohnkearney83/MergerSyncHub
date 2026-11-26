@@ -12,13 +12,13 @@ support ask at 3am that this lets them answer?"** Suggestions without that answe
 
 ## How telemetry works here (read these first)
 
-- `src/SyncHub.Observability/ObservabilityExtensions.cs`: every service calls `builder.AddObservability(...)`.
+- `src/Libraries/SyncHub.Observability/ObservabilityExtensions.cs`: every service calls `builder.AddObservability(...)`.
   Metrics and logs go over OTLP to the OpenTelemetry Collector (`monitoring/otel-collector.yaml`), which
   feeds Prometheus (metrics) and Loki (logs). Grafana is provisioned from `monitoring/grafana/`.
 - Built-in meters are already collected: ASP.NET Core (`http.server.request.duration`), HttpClient
   (`http.client.request.duration`), the runtime, and Polly (`resilience.polly.strategy.events`).
   Don't suggest adding what these already give.
-- Business metrics: `src/SyncHub.Worker/Pipeline/SyncMetrics.cs` (meter `SyncHub.Worker`). New worker
+- Business metrics: `src/Services/SyncHub.Worker/Pipeline/SyncMetrics.cs` (meter `SyncHub.Worker`). New worker
   metrics belong there; a new meter in another service must be passed to `AddObservability(name, meter)`.
 - Logs: `ILogger` with message templates. `BeginScope` values (Source, CorrelationId) become Loki structured
   metadata. `CorrelationId` is also stored on `ops.SyncRun`, linking the dashboard to the logs.

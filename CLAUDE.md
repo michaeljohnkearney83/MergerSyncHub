@@ -17,12 +17,12 @@ keep the "why" comments.
 | Path | Purpose |
 |---|---|
 | `database/` | Numbered SQL scripts 01–06, `setup.ps1`, `perf/` indexing demo, `demo/` change simulator |
-| `src/SyncHub.Core` | Pure logic, no I/O: models, mappers, validation, name normalisation, duplicate matching |
-| `src/SyncHub.Worker` | .NET BackgroundService: incremental sync → SqlBulkCopy staging → set-based MERGE |
-| `src/SyncHub.SupportApi` | Minimal API behind the dashboard; JWT bearer auth with role policies |
-| `src/FirmB.MockApi` | "Other firm" REST API with injected 503s, slow responses and bad records |
-| `src/CorpDirectory.Api` | Mock AD / Entra ID: sign-in, RS256 tokens, OIDC discovery + JWKS, joiner/leaver admin API |
-| `src/SyncHub.Observability` | `AddObservability()`: OpenTelemetry metrics + logs over OTLP, shared by all four services |
+| `src/Libraries/SyncHub.Core` | Pure logic, no I/O: models, mappers, validation, name normalisation, duplicate matching |
+| `src/Services/SyncHub.Worker` | .NET BackgroundService: incremental sync → SqlBulkCopy staging → set-based MERGE |
+| `src/Services/SyncHub.SupportApi` | Minimal API behind the dashboard; JWT bearer auth with role policies |
+| `src/Mocks/FirmB.MockApi` | "Other firm" REST API with injected 503s, slow responses and bad records |
+| `src/Mocks/CorpDirectory.Api` | Mock AD / Entra ID: sign-in, RS256 tokens, OIDC discovery + JWKS, joiner/leaver admin API |
+| `src/Libraries/SyncHub.Observability` | `AddObservability()`: OpenTelemetry metrics + logs over OTLP, shared by all four services |
 | `tests/SyncHub.Tests` | xUnit tests for Core (mappers, matching, UK time conversion) |
 | `tests/SyncHub.IntegrationTests` | Needs Docker: Support API in memory (`WebApplicationFactory`, test-signed JWTs) + real procs in a Testcontainers SQL Server |
 | `dashboard/` | React + TS (Vite) support dashboard, port 5173 |
@@ -38,11 +38,13 @@ keep the "why" comments.
 | `.githooks/pre-push` | Runs `claude -p --agent coding-standards` on pushes to `feature/*`; enable with `git config core.hooksPath .githooks` |
 | `.githooks/post-commit` | Merges `origin/main` (or local `main`) into `feature/*` after each commit; aborts cleanly on conflict |
 
-**Solution layout:** `src/MergerSyncHub.sln` groups projects into solution folders: **Libraries** (Core,
-Observability), **Services** (Worker, SupportApi), **Mocks** (CorpDirectory.Api, FirmB.MockApi: stand-ins for Entra ID
-and Firm B's real system, never deployed) and **Tests**. On disk, tests live in `tests/` and import
-`src/Directory.Build.props` through `tests/Directory.Build.props`. A new project goes in the right solution folder
-(`dotnet sln src/MergerSyncHub.sln add --solution-folder <Folder> <path>`).
+**Solution layout:** projects are grouped on disk and in `src/MergerSyncHub.sln` (matching solution folders):
+`src/Libraries/` (Core, Observability), `src/Services/` (Worker, SupportApi), `src/Mocks/` (CorpDirectory.Api,
+FirmB.MockApi: stand-ins for Entra ID and Firm B's real system, never deployed) and `tests/`. Tests import
+`src/Directory.Build.props` through `tests/Directory.Build.props`. The Docker build takes the group as a build arg
+(`GROUP` + `PROJECT` in compose). A new project goes in the right folder on disk and in the solution
+(`dotnet sln src/MergerSyncHub.sln add --solution-folder <Group> src/<Group>/<Project>/<Project>.csproj`).
+**Close VS Code before moving projects:** the C# extension rewrites `.csproj` files and recreates old ones mid-move.
 
 ## Running locally (this machine)
 
@@ -132,7 +134,7 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
   (wrong server/port, or user secrets not loaded because the environment isn't Development).
 - `QUOTED_IDENTIFIER` errors on `CREATE INDEX` → script run via sqlcmd without `-I` / `SET` line.
 - The Support API caches the directory's signing keys; if the directory wasn't up, it retries after 30s.
-- Deleting `src/CorpDirectory.Api/signing-key.pem` invalidates all issued tokens (users sign in again).
+- Deleting `src/Mocks/CorpDirectory.Api/signing-key.pem` invalidates all issued tokens (users sign in again).
 - Inside Docker, `localhost` is the container itself. The Support API trusts issuer `http://localhost:5090` but loads
   keys via `Auth:MetadataAddress` (`http://directory-api:8080/...`); the discovery document builds `jwks_uri` from the
   request's host for this reason. React apps get `localhost` URLs at build time, because the browser runs on the host.

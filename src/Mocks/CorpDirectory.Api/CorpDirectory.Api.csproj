@@ -11,6 +11,6 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\SyncHub.Observability\SyncHub.Observability.csproj" />
+    <ProjectReference Include="..\..\Libraries\SyncHub.Observability\SyncHub.Observability.csproj" />
   </ItemGroup>
 </Project>
