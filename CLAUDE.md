@@ -23,8 +23,8 @@ keep the "why" comments.
 | `src/FirmB.MockApi` | "Other firm" REST API with injected 503s, slow responses and bad records |
 | `src/CorpDirectory.Api` | Mock AD / Entra ID: sign-in, RS256 tokens, OIDC discovery + JWKS, joiner/leaver admin API |
 | `src/SyncHub.Observability` | `AddObservability()`: OpenTelemetry metrics + logs over OTLP, shared by all four services |
-| `src/SyncHub.Tests` | xUnit tests for Core (mappers, matching, UK time conversion) |
-| `src/SyncHub.IntegrationTests` | Needs Docker: Support API in memory (`WebApplicationFactory`, test-signed JWTs) + real procs in a Testcontainers SQL Server |
+| `tests/SyncHub.Tests` | xUnit tests for Core (mappers, matching, UK time conversion) |
+| `tests/SyncHub.IntegrationTests` | Needs Docker: Support API in memory (`WebApplicationFactory`, test-signed JWTs) + real procs in a Testcontainers SQL Server |
 | `dashboard/` | React + TS (Vite) support dashboard, port 5173 |
 | `directory-admin/` | React + TS (Vite) directory admin centre, port 5174 |
 | `reports/` | SSRS and Power BI build guides, `measures.dax` |
@@ -37,6 +37,12 @@ keep the "why" comments.
 | `.claude/agents/coding-standards.md` | Read-only gate agent (Sonnet): blocking/advisory rules, last line `VERDICT: PASS` or `VERDICT: FAIL` |
 | `.githooks/pre-push` | Runs `claude -p --agent coding-standards` on pushes to `feature/*`; enable with `git config core.hooksPath .githooks` |
 | `.githooks/post-commit` | Merges `origin/main` (or local `main`) into `feature/*` after each commit; aborts cleanly on conflict |
+
+**Solution layout:** `src/MergerSyncHub.sln` groups projects into solution folders: **Libraries** (Core,
+Observability), **Services** (Worker, SupportApi), **Mocks** (CorpDirectory.Api, FirmB.MockApi: stand-ins for Entra ID
+and Firm B's real system, never deployed) and **Tests**. On disk, tests live in `tests/` and import
+`src/Directory.Build.props` through `tests/Directory.Build.props`. A new project goes in the right solution folder
+(`dotnet sln src/MergerSyncHub.sln add --solution-folder <Folder> <path>`).
 
 ## Running locally (this machine)
 
@@ -67,7 +73,7 @@ keep the "why" comments.
 ```powershell
 dotnet build src
 dotnet test src                    # unit + integration (integration needs Docker)
-dotnet test src/SyncHub.Tests      # unit only
+dotnet test tests/SyncHub.Tests    # unit only
 cd database; .\setup.ps1 -Server "localhost,14333" -User sa -Password '<sa password>'   # rebuilds ALL databases
 ```
 

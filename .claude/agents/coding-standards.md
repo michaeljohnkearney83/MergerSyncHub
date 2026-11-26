@@ -62,7 +62,7 @@ Each rule is **[B] Blocking** (the push fails) or **[A] Advisory** (reported, pu
 - [B] A change to how the project is run, configured or deployed (ports, settings keys, start order,
   scripts, compose services) without the matching `README.md` and `CLAUDE.md` update in the same push.
 - [A] US spelling in UI text, comments or docs (`color`, `normalize`, `initialize`): the project uses UK English.
-- [A] New behaviour without tests where `src/SyncHub.Tests` covers the area (mappers, matching, time conversion).
+- [A] New behaviour without tests where `tests/SyncHub.Tests` covers the area (mappers, matching, time conversion).
 
 ## Output format
 

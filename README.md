@@ -120,6 +120,10 @@ flowchart LR
 
 ## What's in the repo
 
+In Visual Studio or Rider, `src/MergerSyncHub.sln` groups the projects into **Libraries** (Core, Observability),
+**Services** (the worker and the Support API: the real system), **Mocks** (the corporate directory and Firm B's API,
+which stand in for Entra ID and the other firm's real system) and **Tests**. On disk, tests live in `tests/`.
+
 | Path | What it is |
 |---|---|
 | `database/` | SQL scripts: both databases, schemas, stored procedures, reporting layer, plus `setup.ps1` |
@@ -132,7 +136,8 @@ flowchart LR
 | `src/CorpDirectory.Api` | Mock corporate directory (stands in for Active Directory / Entra ID): sign-in, roles, joiners and leavers |
 | `directory-admin/` | React admin centre for the directory: add new starters, manage access, disable leavers, audit log |
 | `src/SyncHub.Observability` | Shared OpenTelemetry set-up: every service sends metrics and logs to the collector |
-| `src/SyncHub.Tests` | xUnit tests for mapping, validation, time zones and matching |
+| `tests/SyncHub.Tests` | xUnit unit tests for mapping, validation, time zones and matching |
+| `tests/SyncHub.IntegrationTests` | Security and database tests against the real API and stored procedures (needs Docker) |
 | `dashboard/` | React + TypeScript (Vite) support dashboard |
 | `reports/ssrs/` | Step-by-step build of the SSRS exceptions report |
 | `reports/powerbi/` | Power BI model, DAX measures and row-level security guide |
@@ -192,7 +197,7 @@ The committed `appsettings.json` files contain only password-free defaults (Wind
 
 ```powershell
 dotnet test src                       # everything (the integration tests need Docker running)
-dotnet test src/SyncHub.Tests         # unit tests only: fast, no Docker
+dotnet test tests/SyncHub.Tests       # unit tests only: fast, no Docker
 ```
 
 | Project | What it proves | Needs |
