@@ -33,6 +33,7 @@ public sealed class SourceSyncService(
     ILogger<SourceSyncService> logger)
 {
     private static readonly string[] EntityOrder = [Entities.Client, Entities.Matter];   // clients first: matters need them
+    private const int FirmALocalTimeLookbackMinutes = 65;
 
     public async Task SyncAsync(ISourceConnector connector, CancellationToken ct)
     {
@@ -88,7 +89,13 @@ public sealed class SourceSyncService(
         var settings = options.Value;
 
         var watermark = await repository.GetWatermarkAsync(source, entity);
-        DateTime? since = watermark?.AddMinutes(-settings.LookbackMinutes);
+        // Firm A's timestamps are UK local time, so when the clocks go back 01:00-02:00 happens twice.
+        // An edit stamped 01:10 GMT can land after the watermark reached 01:55 BST; looking back at
+        // least an hour still picks it up. Re-reading is safe because the merge is idempotent.
+        var lookbackMinutes = source == SourceSystems.FirmA
+            ? Math.Max(settings.LookbackMinutes, FirmALocalTimeLookbackMinutes)
+            : settings.LookbackMinutes;
+        DateTime? since = watermark?.AddMinutes(-lookbackMinutes);
         var sourceTotal = await connector.GetSourceTotalAsync(entity, ct);
 
         logger.LogInformation("{Entity}: reading changes since {Since} (source holds {SourceTotal})",

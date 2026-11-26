@@ -267,7 +267,7 @@ How it fits together:
 | **Staging table, then a set-based `MERGE`** | One round trip per batch instead of row-by-row. SqlBulkCopy is much faster than individual inserts. The staged rows are kept as an audit trail. |
 | **Idempotent merge (row hash) and a watermark that moves only after commit** | If anything fails halfway, the next run re-reads the same records, and re-applying them changes nothing. Retrying is always safe. |
 | **Overlap window on the watermark** | Rows committed late with an earlier timestamp would otherwise be missed. Re-reading a few minutes costs little because of idempotency. |
-| **Newer-wins check (`SourceModifiedUtc`)** | A replay of an old record must never overwrite newer data. |
+| **Newer-wins check (`SourceModifiedUtc`), on replays only** | A replay of an old record must never overwrite newer data. Scheduled reads skip it: they always return the source's current state, and Firm A's UK local timestamps repeat an hour when the clocks go back, so comparing them could silently reject a real later edit. |
 | **Dead letters with the raw payload** | One bad record shouldn't stop 75,000 good ones. Keeping the payload means a person can correct and replay it without asking the source team to re-send. |
 | **One open dead letter per record** | Repeated failures increase a counter instead of flooding the queue. |
 | **Self-healing orphans** | Matters that arrive before their client are queued again automatically when the client lands. That removes a common source of support tickets. |

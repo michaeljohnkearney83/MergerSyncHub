@@ -8,6 +8,9 @@
     queries across databases, so you can move FirmA_Legacy elsewhere by changing
     a connection string.
 */
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
 IF DB_ID(N'FirmA_Legacy') IS NULL
     CREATE DATABASE FirmA_Legacy;
 GO

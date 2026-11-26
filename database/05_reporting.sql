@@ -20,7 +20,6 @@ SET ANSI_NULLS ON;
 GO
 
 DROP TABLE IF EXISTS rpt.FactMatter;
-DROP TABLE IF EXISTS rpt.FactDataQualityDaily;
 DROP TABLE IF EXISTS rpt.DimClient;
 DROP TABLE IF EXISTS rpt.DimPracticeArea;
 DROP TABLE IF EXISTS rpt.DimFirm;
@@ -107,6 +106,10 @@ CREATE TABLE rpt.FactMatter
 );
 CREATE INDEX IX_FactMatter_Client ON rpt.FactMatter (ClientKey);
 
+-- The one rpt table that can't be rebuilt from core: it is a daily history. Create it only
+-- if missing, so re-running this script (to change a procedure, say) keeps the trend.
+-- FirmKey values are fixed in DimFirm above, so old rows still join after a reload.
+IF OBJECT_ID(N'rpt.FactDataQualityDaily', N'U') IS NULL
 CREATE TABLE rpt.FactDataQualityDaily
 (
     SnapshotDate             date    NOT NULL,

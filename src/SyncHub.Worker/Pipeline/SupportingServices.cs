@@ -54,9 +54,9 @@ public sealed class ReplayService(SyncHubRepository repository, MapperRegistry m
 
                 // Stage and merge clients before matters so an orphan can find its client in the same replay
                 var stagedClients = await repository.BulkStageClientsAsync(runId, clients, ct);
-                var clientMerge = await repository.MergeAsync(Entities.Client, runId);
+                var clientMerge = await repository.MergeAsync(Entities.Client, runId, isReplay: true);
                 var stagedMatters = await repository.BulkStageMattersAsync(runId, matters, ct);
-                var matterMerge = await repository.MergeAsync(Entities.Matter, runId);
+                var matterMerge = await repository.MergeAsync(Entities.Matter, runId, isReplay: true);
 
                 var clientCount = group.Count(i => i.Entity == Entities.Client);
                 var matterCount = group.Count() - clientCount;

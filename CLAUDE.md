@@ -68,7 +68,9 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
 - **Identity comes from the token**, never from request bodies (`ClaimsPrincipal`, `name` claim).
 - **Mapping never throws for bad data**: return `MapResult.Failure`, which becomes a dead letter.
   Replay uses the same mapper as live sync.
-- **Merges must stay idempotent** (row hash compare) and **newer-wins** (`SourceModifiedUtc`).
+- **Merges must stay idempotent** (row hash compare). **Newer-wins** (`SourceModifiedUtc`) applies to replays
+  only (`@IsReplay = 1`); scheduled reads always win, because Firm A's local-time stamps repeat an hour in October.
+  Firm A's look-back is at least 65 minutes for the same reason.
   The watermark only moves after the merge commits.
 - **SQL scripts:** re-runnable (drop/create or `CREATE OR ALTER`), unambiguous date literals
   (`'YYYYMMDD'`, since British-English logins misread `'YYYY-MM-DD'`), and `SET QUOTED_IDENTIFIER ON`
