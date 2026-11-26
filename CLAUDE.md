@@ -113,7 +113,9 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
 
 ## Git workflow
 
-- The repo was initialised on 2026-11-26 (`main`, no commits or remote yet). Work on `feature/*` branches.
+- Remote: `origin` = https://github.com/michaeljohnkearney83/MergerSyncHub (**public**: never commit
+  secrets or real client data). Work on `feature/*` branches
+  and merge into `main`; pushing a `feature/*` branch runs the coding-standards check (needs the `claude` CLI).
 - `core.hooksPath` is set to `.githooks` in this clone; every new clone needs `git config core.hooksPath .githooks`.
 - The post-commit hook auto-merges main into feature branches. Don't be surprised by "Merge origin/main into
   feature/..." commits, and don't run it during a rebase (it skips itself). `SKIP_AUTO_MERGE=1` turns it off once.
