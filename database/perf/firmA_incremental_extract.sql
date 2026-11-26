@@ -38,10 +38,22 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_MATTER_LAST_MODIFIED' 
         INCLUDE (CLIENT_ID, MATTER_NO, DESCRIPTION, DEPT_CODE, FEE_EARNER, OPEN_DATE, CLOSE_DATE, STATUS);
 GO
 
+-- INCLUDE must list every column FirmAConnector selects (ADDRESS_1 too), or each changed client
+-- needs a key lookup and the index no longer covers the query. An older version of this index
+-- left ADDRESS_1 out, so replace it if it's there without that column.
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_CLIENT_LAST_MODIFIED' AND object_id = OBJECT_ID('dbo.CLIENT'))
+   AND NOT EXISTS (SELECT 1
+                     FROM sys.indexes i
+                     JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id
+                     JOIN sys.columns c        ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+                    WHERE i.name = 'IX_CLIENT_LAST_MODIFIED' AND i.object_id = OBJECT_ID('dbo.CLIENT')
+                      AND c.name = 'ADDRESS_1')
+    DROP INDEX IX_CLIENT_LAST_MODIFIED ON dbo.CLIENT;
+
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_CLIENT_LAST_MODIFIED' AND object_id = OBJECT_ID('dbo.CLIENT'))
     CREATE INDEX IX_CLIENT_LAST_MODIFIED
         ON dbo.CLIENT (LAST_MODIFIED, CLIENT_ID)
-        INCLUDE (CLIENT_CODE, CLIENT_NAME, POSTCODE, COUNTRY, OPEN_DATE, STATUS);
+        INCLUDE (CLIENT_CODE, CLIENT_NAME, ADDRESS_1, POSTCODE, COUNTRY, OPEN_DATE, STATUS);
 GO
 
 /*

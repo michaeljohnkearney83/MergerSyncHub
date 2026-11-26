@@ -287,7 +287,7 @@ How it fits together:
 
 - **Deletes** aren't handled. The sources only soft-close records. Next step: SQL Server Change Tracking on Firm A, and a deletions feed or periodic key comparison for Firm B.
 - **Paging during changes.** Firm B's page-number paging can skip a record that moves between pages mid-read. The overlap window covers it here; keyset paging (`after=lastModified,id`) would be better.
-- **Nvarchar parameters against varchar columns.** Dapper sends strings as `nvarchar`, which can force an implicit conversion and a scan on large `varchar` indexes. Fix with `DbString { IsAnsi = true }` on hot paths.
+- **Nvarchar parameters against varchar columns** (fixed in the Support API). Dapper sends strings as `nvarchar`; against a `varchar` column with a SQL collation that turns an index seek into a scan with `CONVERT_IMPLICIT`. The Support API now sends `varchar` parameters (`DbString { IsAnsi = true }`); the worker already used typed stored-procedure parameters.
 - **Security.**
   - Replace the mock directory with Entra ID. The Support API only needs its `Auth:Authority` changed, because it already validates standard signed tokens.
   - Use MSAL in the React apps instead of keeping tokens in sessionStorage.

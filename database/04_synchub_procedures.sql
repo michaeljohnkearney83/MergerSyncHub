@@ -401,15 +401,23 @@ AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @Cutoff datetime2(3) = DATEADD(DAY, -@KeepDays, SYSUTCDATETIME());
+
+    -- Purge by run, not by StagedAtUtc: SyncRunId leads IX_stgClient_Run / IX_stgMatter_Run, so each
+    -- chunk is an index seek. Nothing is indexed on StagedAtUtc, so filtering on it rescanned the whole
+    -- staging table for every 5,000-row chunk. Run ids only grow, so "every run started before the
+    -- cutoff" is a single upper bound.
+    DECLARE @MaxRunId bigint = (SELECT MAX(SyncRunId) FROM ops.SyncRun WHERE StartedAtUtc < @Cutoff);
+    IF @MaxRunId IS NULL RETURN;
+
     -- Delete in chunks to keep the transaction log and locking under control
     WHILE 1 = 1
     BEGIN
-        DELETE TOP (5000) FROM stg.Matter WHERE StagedAtUtc < @Cutoff;
+        DELETE TOP (5000) FROM stg.Matter WHERE SyncRunId <= @MaxRunId;
         IF @@ROWCOUNT = 0 BREAK;
     END;
     WHILE 1 = 1
     BEGIN
-        DELETE TOP (5000) FROM stg.Client WHERE StagedAtUtc < @Cutoff;
+        DELETE TOP (5000) FROM stg.Client WHERE SyncRunId <= @MaxRunId;
         IF @@ROWCOUNT = 0 BREAK;
     END;
 END;

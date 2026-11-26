@@ -200,6 +200,13 @@ public sealed class SupportRepository(IConfiguration configuration)
             """, new { SyncRunId = syncRunId });
     }
 
+    /// <summary>
+    /// A varchar parameter. Dapper sends C# strings as nvarchar(4000) by default; compared with a varchar
+    /// column, SQL Server converts the column side (CONVERT_IMPLICIT) and can no longer seek the index.
+    /// Matching the column's type and length keeps the seek and gives one cached plan per query.
+    /// </summary>
+    private static DbString Ansi(string? value, int length) => new() { Value = value, IsAnsi = true, Length = length };
+
     public async Task<IEnumerable<DeadLetterRow>> GetDeadLettersAsync(string status, string? source, string? errorType)
     {
         await using var conn = Open();
@@ -212,7 +219,7 @@ public sealed class SupportRepository(IConfiguration configuration)
                AND (@Source IS NULL OR Source = @Source)
                AND (@ErrorType IS NULL OR ErrorType = @ErrorType)
              ORDER BY LastSeenAtUtc DESC, DeadLetterId DESC
-            """, new { Status = status, Source = source, ErrorType = errorType });
+            """, new { Status = Ansi(status, 20), Source = Ansi(source, 20), ErrorType = Ansi(errorType, 50) });
     }
 
     public async Task<IEnumerable<ErrorTypeCount>> GetOpenErrorTypesAsync()
@@ -256,7 +263,7 @@ public sealed class SupportRepository(IConfiguration configuration)
                AND (@Id IS NULL OR DeadLetterId = @Id)
                AND (@Source IS NULL OR Source = @Source)
                AND (@ErrorType IS NULL OR ErrorType = @ErrorType)
-            """, new { Id = id, Source = source, ErrorType = errorType, User = user });
+            """, new { Id = id, Source = Ansi(source, 20), ErrorType = Ansi(errorType, 50), User = user });
     }
 
     public async Task<bool> IgnoreAsync(long id, string user, string note)
@@ -288,7 +295,7 @@ public sealed class SupportRepository(IConfiguration configuration)
               JOIN core.Client b ON b.ClientId = c.ClientIdB
              WHERE @Status = 'All' OR c.Status = @Status
              ORDER BY c.Score DESC, c.CandidateId
-            """, new { Status = status });
+            """, new { Status = Ansi(status, 20) });
     }
 
     public async Task<bool> DecideDuplicateAsync(int candidateId, string decision, string user)
@@ -316,7 +323,8 @@ public sealed class SupportRepository(IConfiguration configuration)
              WHERE Source = @Source
                AND (ClientName LIKE @Pattern OR SourceClientKey = @Search)
              ORDER BY CASE WHEN SourceClientKey = @Search THEN 0 ELSE 1 END, ClientName
-            """, new { Source = source, Search = search, Pattern = $"%{escaped}%" });
+            """, // Pattern stays Unicode: it is compared with ClientName, which is nvarchar.
+            new { Source = Ansi(source, 20), Search = Ansi(search, 50), Pattern = $"%{escaped}%" });
     }
 
     public async Task<IEnumerable<ReconciliationRow>> GetReconciliationAsync()
@@ -353,6 +361,6 @@ public sealed class SupportRepository(IConfiguration configuration)
                 INSERT core.PracticeAreaMap (Source, SourceCode, PracticeArea) VALUES (@Source, @SourceCode, @PracticeArea);
             ELSE
                 UPDATE core.PracticeAreaMap SET PracticeArea = @PracticeArea WHERE Source = @Source AND SourceCode = @SourceCode;
-            """, new { Source = source, SourceCode = sourceCode, PracticeArea = practiceArea });
+            """, new { Source = Ansi(source, 20), SourceCode = Ansi(sourceCode, 30), PracticeArea = practiceArea });
     }
 }
