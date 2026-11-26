@@ -1,0 +1,156 @@
+/// Home of all measures, so they're in one place rather than scattered across tables.
+table _Measures
+	lineageTag: 4e2f5060-accc-434c-811c-9da6f4b166ea
+
+	/// Number of matters in the current filter context.
+	measure 'Total Matters' = COUNTROWS ( FactMatter )
+		formatString: #,0
+		displayFolder: Volume
+		lineageTag: 05cf1bd8-07b0-4ff1-bd04-72f32f445d62
+
+	/// Matters not yet closed.
+	measure 'Open Matters' = CALCULATE ( [Total Matters], FactMatter[IsOpen] = TRUE () )
+		formatString: #,0
+		displayFolder: Volume
+		lineageTag: 1b141d50-38e6-455e-87ad-d2a2429ee0f7
+
+	/// Matters by opened date: uses the active FactMatter[OpenedDateKey] relationship to DimDate.
+	measure 'Matters Opened' = [Total Matters]
+		formatString: #,0
+		displayFolder: Volume
+		lineageTag: b6dba5ff-a9bc-4162-8c4a-58c4fad94e19
+
+	/// Matters by closed date: switches on the inactive closed-date relationship.
+	measure 'Matters Closed' =
+			CALCULATE (
+			    [Total Matters],
+			    USERELATIONSHIP ( FactMatter[ClosedDateKey], DimDate[DateKey] )
+			)
+		formatString: #,0
+		displayFolder: Volume
+		lineageTag: 13b73c12-a620-4f82-bf53-d9e246b801bb
+
+	/// Matters opened from 1 April to the latest date in context (UK financial year). Uses DimDate[FinancialYear] rather than TOTALYTD's year-end string, which is read differently in en-GB and en-US.
+	measure 'Matters Opened YTD (Financial)' =
+			VAR UpToDate = MAX ( DimDate[Date] )
+			VAR ThisFinancialYear = MAX ( DimDate[FinancialYear] )
+			RETURN
+			    CALCULATE (
+			        [Matters Opened],
+			        DimDate[FinancialYear] = ThisFinancialYear,
+			        DimDate[Date] <= UpToDate
+			    )
+		formatString: #,0
+		displayFolder: Volume
+		lineageTag: 810875ad-2c36-4441-9459-22c4a2dc8bf4
+
+	/// Change against the same period last year.
+	measure 'Matters Opened vs Prior Year %' =
+			VAR ThisPeriod = [Matters Opened]
+			VAR PriorPeriod = CALCULATE ( [Matters Opened], SAMEPERIODLASTYEAR ( DimDate[Date] ) )
+			RETURN DIVIDE ( ThisPeriod - PriorPeriod, PriorPeriod )
+		formatString: +0.0%;-0.0%;0.0%
+		displayFolder: Volume
+		lineageTag: d70511e0-8167-45db-846a-332636bbef5a
+
+	/// Average age of matters, in days.
+	measure 'Average Days Open' = AVERAGE ( FactMatter[DaysOpen] )
+		formatString: #,0
+		displayFolder: Volume
+		lineageTag: e6c6236e-4530-4bf5-9f96-83524d70ed32
+
+	/// Client rows as held in the source systems, before de-duplication. DimClient has no relationship to DimFirm (firm reaches matters only), so the firm filter is applied through DimClient[Source] with TREATAS; otherwise every firm would show every client.
+	measure 'Client Records' =
+			CALCULATE (
+			    DISTINCTCOUNT ( DimClient[ClientKey] ),
+			    TREATAS ( VALUES ( DimFirm[Source] ), DimClient[Source] )
+			)
+		formatString: #,0
+		displayFolder: Clients
+		lineageTag: ffa92eb3-d23a-4b61-88b8-2196172ef3c0
+
+	/// Clients after de-duplication: confirmed duplicates share a MasterClientKey, so they count once. Respects the firm filter through DimClient[Source] (see Client Records).
+	measure 'Unique Clients' =
+			CALCULATE (
+			    DISTINCTCOUNT ( DimClient[MasterClientKey] ),
+			    TREATAS ( VALUES ( DimFirm[Source] ), DimClient[Source] )
+			)
+		formatString: #,0
+		displayFolder: Clients
+		lineageTag: ec072e87-0c53-4480-a4de-f2d1b12fda4d
+
+	/// Share of client records that are duplicates of another.
+	measure 'Duplicate Records %' = DIVIDE ( [Client Records] - [Unique Clients], [Client Records] )
+		formatString: 0.0%
+		displayFolder: Clients
+		lineageTag: 7cbed357-17e8-45ee-a9a7-9b21e6f0e889
+
+	/// Clients that instructed both legacy firms: the cross-selling and conflicts story of the merger.
+	measure 'Shared Clients (Both Firms)' = CALCULATE ( [Unique Clients], DimClient[GroupSpansFirms] = TRUE () )
+		formatString: #,0
+		displayFolder: Clients
+		lineageTag: fc843781-25e8-40fb-b5bf-8aad4118f3cc
+
+	/// The client with the most matters in context.
+	measure 'Top Client by Matters' =
+			VAR Ranked =
+			    TOPN ( 1, VALUES ( DimClient[MasterClientName] ), [Total Matters], DESC )
+			RETURN CONCATENATEX ( Ranked, DimClient[MasterClientName], ", " )
+		displayFolder: Clients
+		lineageTag: 5298ec8b-8dec-42a6-b9f6-9e9c498d0cfb
+
+	/// Matters whose practice-area code has no firm-wide mapping yet.
+	measure 'Unmapped Matters' = CALCULATE ( [Total Matters], DimPracticeArea[PracticeArea] = "Unmapped" )
+		formatString: #,0
+		displayFolder: Data quality
+		lineageTag: abd0ac00-a7b2-493c-96e4-c5a5584302b1
+
+	/// Share of matters without a practice-area mapping.
+	measure 'Unmapped Matters %' = DIVIDE ( [Unmapped Matters], [Total Matters] )
+		formatString: 0.0%
+		displayFolder: Data quality
+		lineageTag: 443b2dc7-1bf0-4226-8b15-238de0feff52
+
+	/// Open exceptions on the most recent snapshot day. A snapshot: never summed across days.
+	measure 'Open Exceptions (Latest)' =
+			VAR LatestDate = MAX ( FactDataQualityDaily[SnapshotDate] )
+			RETURN
+			    CALCULATE (
+			        SUM ( FactDataQualityDaily[OpenExceptions] ),
+			        FactDataQualityDaily[SnapshotDate] = LatestDate
+			    )
+		formatString: #,0
+		displayFolder: Data quality
+		lineageTag: 3c951e81-52f8-4286-abb2-c9e4085b8e8d
+
+	/// Duplicate pairs awaiting a data steward, on the most recent snapshot day.
+	measure 'Pending Duplicate Reviews (Latest)' =
+			VAR LatestDate = MAX ( FactDataQualityDaily[SnapshotDate] )
+			RETURN
+			    CALCULATE (
+			        SUM ( FactDataQualityDaily[PendingDuplicateReviews] ),
+			        FactDataQualityDaily[SnapshotDate] = LatestDate
+			    )
+		formatString: #,0
+		displayFolder: Data quality
+		lineageTag: 2ba8131f-dc79-460d-a8df-0e4ec356d862
+
+	/// 0-100 indicator: share of matters mapped, less a penalty for open exceptions relative to volume. The weights are a starting point to agree with the business.
+	measure 'Data Quality Score' =
+			VAR Mapped = 1 - [Unmapped Matters %]
+			VAR ExceptionRate = DIVIDE ( [Open Exceptions (Latest)], [Total Matters] )
+			RETURN ROUND ( 100 * MAX ( 0, Mapped - ExceptionRate * 10 ), 0 )
+		formatString: 0
+		displayFolder: Data quality
+		lineageTag: e49e97d2-2a2b-4020-9faf-c217e7fe5cc7
+
+	column Placeholder
+		isHidden
+		lineageTag: 78db3c94-1685-4a2f-ab35-0a3cc1171187
+		isNameInferred
+		sourceColumn: [Placeholder]
+
+	partition _Measures = calculated
+		mode: import
+		source = ROW ( "Placeholder", BLANK () )
+

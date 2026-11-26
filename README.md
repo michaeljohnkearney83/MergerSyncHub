@@ -63,7 +63,7 @@ More terms (watermark, look-back, staging, idempotent, orphan matter, roles...) 
 | Monitoring | OpenTelemetry Collector (contrib) / Prometheus / Loki / Grafana / Alloy | 0.130.0 / 3.5.0 / 3.5.0 / 12.1.0 / 1.22.0 |
 | Tests | xUnit / Testcontainers.MsSql / Mvc.Testing | 2.9 / 4.17.0 / 10.0.15 |
 | Containers | Build images: .NET SDK 10.0, Node 22 (alpine); runtime: ASP.NET Core 10.0, nginx 1.27 | |
-| Reporting | SSRS, Power BI Desktop | build guides in `reports/` |
+| Reporting | Power BI Desktop (PBIP project, TMDL), SSRS | model in `reports/powerbi/`; SSRS guide in `reports/ssrs/` |
 
 Exact package versions live in each `.csproj` and `package.json`; image tags in `docker-compose.yml` and `docker/`.
 
@@ -132,7 +132,7 @@ tests/           SyncHub.Tests, SyncHub.IntegrationTests
 
 | Path | What it is |
 |---|---|
-| `database/` | SQL scripts: both databases, schemas, stored procedures, reporting layer, plus `setup.ps1` |
+| `database/` | SQL scripts: both databases, schemas, stored procedures, reporting layer, read-only reporting login, plus `setup.ps1` |
 | `database/perf/` | Before-and-after indexing demo on the legacy extract query |
 | `database/demo/` | Script that simulates users editing records in Firm A |
 | `src/Libraries/SyncHub.Core` | Pure logic: models, mappers, validation, name normalisation, duplicate matching |
@@ -146,7 +146,7 @@ tests/           SyncHub.Tests, SyncHub.IntegrationTests
 | `tests/SyncHub.IntegrationTests` | Security and database tests against the real API and stored procedures (needs Docker) |
 | `dashboard/` | React + TypeScript (Vite) support dashboard |
 | `reports/ssrs/` | Step-by-step build of the SSRS exceptions report |
-| `reports/powerbi/` | Power BI model, DAX measures and row-level security guide |
+| `reports/powerbi/` | Power BI project (`MergerSyncHub.pbip`): star schema model, 17 measures and row-level security, stored as text (TMDL) |
 | `docker/` | Shared Dockerfiles for the .NET services and React apps, nginx config, and the one-off database setup script |
 | `monitoring/` | OpenTelemetry Collector, Prometheus (with alert rules), Loki and Grafana (provisioned dashboard) config |
 | `docs/interview-guide.md` | How this project maps to the interview questions |
@@ -188,7 +188,12 @@ cd database
 # .\setup.ps1 -Server "localhost,14333" -User sa -Password '<your sa password>'   # Docker
 ```
 
-Or open the six numbered scripts in SSMS and run them in order. Firm A ends up with about 375 clients and 75,000 matters.
+Or open scripts 01–06 in SSMS and run them in order. Firm A ends up with about 375 clients and 75,000 matters.
+(07, the reporting login, needs its password as a sqlcmd variable, so run it through `setup.ps1` or as shown in the script's header.)
+
+**For Power BI and SSRS**, `setup.ps1` also creates a read-only reporting login, `synchub_reporting`, when it's given a
+password: set `REPORTING_SQL_PASSWORD` (in `.env` for Docker, where `db-init` applies it on every start) or pass
+`-ReportingPassword`. The login can read only the `rpt` reporting schema. See [the Power BI guide](reports/powerbi/README.md).
 
 **Using Docker or SQL authentication?** Store your connection strings as .NET user secrets (outside the project,
 so no password is ever committed):

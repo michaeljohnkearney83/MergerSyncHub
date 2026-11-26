@@ -1,0 +1,20 @@
+/// Each user sees only the legacy firms listed for them in UserFirmAccess (maintained by the risk team). Filters DimFirm, which flows to FactMatter and FactDataQualityDaily, and DimClient, so the other firm's client list isn't visible either.
+role FirmAccess
+	modelPermission: read
+
+	tablePermission DimFirm =
+			[Source]
+			    IN CALCULATETABLE (
+			        VALUES ( UserFirmAccess[Source] ),
+			        UserFirmAccess[UserPrincipalName] = USERPRINCIPALNAME ()
+			    )
+
+	tablePermission DimClient =
+			[Source]
+			    IN CALCULATETABLE (
+			        VALUES ( UserFirmAccess[Source] ),
+			        UserFirmAccess[UserPrincipalName] = USERPRINCIPALNAME ()
+			    )
+
+	annotation PBI_Id = fc59ad49014740cfa397014d03a39a82
+

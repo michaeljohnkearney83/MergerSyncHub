@@ -1,0 +1,26 @@
+/// Which users may see which firm's data; read by the FirmAccess security role. Deliberately unrelated to other tables.
+table UserFirmAccess
+	isHidden
+	lineageTag: 01e01708-8758-4d49-b07b-591c7f3ede96
+
+	column UserPrincipalName
+		dataType: string
+		lineageTag: ae4548d5-6630-41df-be75-e5c67b7e577f
+		summarizeBy: none
+		sourceColumn: UserPrincipalName
+
+	column Source
+		dataType: string
+		lineageTag: 13755f66-48a5-4aaf-b892-5a9f086c51c4
+		summarizeBy: none
+		sourceColumn: Source
+
+	partition UserFirmAccess = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    Data = Source{[Schema = "rpt", Item = "UserFirmAccess"]}[Data]
+				in
+				    Data
+

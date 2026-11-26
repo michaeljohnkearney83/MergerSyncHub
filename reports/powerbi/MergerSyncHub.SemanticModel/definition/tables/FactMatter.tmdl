@@ -1,0 +1,92 @@
+/// One row per matter. Opened date is the active date relationship; closed date is inactive (USERELATIONSHIP).
+table FactMatter
+	lineageTag: 47483e57-1b9f-4052-9dc2-17bef7090e92
+
+	column MatterKey
+		dataType: int64
+		isHidden
+		lineageTag: eb6b9380-88db-4004-91ba-2d18f7d37e48
+		summarizeBy: none
+		sourceColumn: MatterKey
+
+	column ClientKey
+		dataType: int64
+		isHidden
+		lineageTag: 8d26def2-a00d-4a78-891c-933607f1f50d
+		summarizeBy: none
+		sourceColumn: ClientKey
+
+	column MasterClientKey
+		dataType: int64
+		isHidden
+		lineageTag: d2b117ea-74a0-41e6-b562-67ffe33a5990
+		summarizeBy: none
+		sourceColumn: MasterClientKey
+
+	column FirmKey
+		dataType: int64
+		isHidden
+		lineageTag: 7514e517-ee85-4284-8a40-66c145ee1d30
+		summarizeBy: none
+		sourceColumn: FirmKey
+
+	column PracticeAreaKey
+		dataType: int64
+		isHidden
+		lineageTag: 964fc43d-da87-48fd-a3a0-c2de6e27c396
+		summarizeBy: none
+		sourceColumn: PracticeAreaKey
+
+	column PracticeAreaCode
+		dataType: string
+		lineageTag: c2238192-8796-4ff7-badc-f6e159e65cde
+		summarizeBy: none
+		sourceColumn: PracticeAreaCode
+
+	column MatterNumber
+		dataType: string
+		lineageTag: faeb6125-4eac-41e5-8ee2-27ec9b02c4d6
+		summarizeBy: none
+		sourceColumn: MatterNumber
+
+	column FeeEarner
+		dataType: string
+		lineageTag: 19f9a365-809d-47ac-9323-d8e79e9e5cdc
+		summarizeBy: none
+		sourceColumn: FeeEarner
+
+	column OpenedDateKey
+		dataType: int64
+		isHidden
+		lineageTag: af033b74-f8a7-4147-824e-afaf80f4c689
+		summarizeBy: none
+		sourceColumn: OpenedDateKey
+
+	column ClosedDateKey
+		dataType: int64
+		isHidden
+		lineageTag: e0a6366a-5385-4b0b-b378-2a3d02e640b6
+		summarizeBy: none
+		sourceColumn: ClosedDateKey
+
+	column IsOpen
+		dataType: boolean
+		lineageTag: 4afaa188-b05c-4b65-a32a-07cee7c2e4ad
+		summarizeBy: none
+		sourceColumn: IsOpen
+
+	column DaysOpen
+		dataType: int64
+		lineageTag: b402d1ce-93de-4736-8040-5cff5d411b71
+		summarizeBy: average
+		sourceColumn: DaysOpen
+
+	partition FactMatter = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    Data = Source{[Schema = "rpt", Item = "FactMatter"]}[Data]
+				in
+				    Data
+

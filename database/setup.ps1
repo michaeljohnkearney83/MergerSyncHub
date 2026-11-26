@@ -11,7 +11,10 @@
 param(
     [string]$Server = "localhost",
     [string]$User,
-    [string]$Password
+    [string]$Password,
+    # Password for the read-only reporting login (Power BI, SSRS). Defaults to REPORTING_SQL_PASSWORD;
+    # if neither is set, 07_reporting_login.sql is skipped.
+    [string]$ReportingPassword = $env:REPORTING_SQL_PASSWORD
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,6 +38,17 @@ foreach ($script in $scripts) {
         sqlcmd -S $Server -E -C -b -I -i $path
     }
     if ($LASTEXITCODE -ne 0) { throw "$script failed" }
+}
+
+if ($ReportingPassword) {
+    Write-Host "Running 07_reporting_login.sql..." -ForegroundColor Cyan
+    $path = Join-Path $PSScriptRoot "07_reporting_login.sql"
+    $var = "ReportingPassword=$ReportingPassword"
+    if ($User) { sqlcmd -S $Server -U $User -P $Password -C -b -I -i $path -v $var }
+    else       { sqlcmd -S $Server -E -C -b -I -i $path -v $var }
+    if ($LASTEXITCODE -ne 0) { throw "07_reporting_login.sql failed" }
+} else {
+    Write-Host "Skipping 07_reporting_login.sql: pass -ReportingPassword or set REPORTING_SQL_PASSWORD." -ForegroundColor Yellow
 }
 
 Write-Host "Database setup complete." -ForegroundColor Green

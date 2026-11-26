@@ -73,6 +73,7 @@ services:
     entrypoint: ["/bin/bash", "/db-init.sh"]
     environment:
       MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
+      REPORTING_SQL_PASSWORD: "${REPORTING_SQL_PASSWORD:-}"   # optional: read-only login for Power BI / SSRS
     volumes:
       - ./database:/scripts:ro
       - ./docker/db-init.sh:/db-init.sh:ro

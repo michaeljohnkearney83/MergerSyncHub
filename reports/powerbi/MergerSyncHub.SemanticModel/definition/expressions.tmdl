@@ -1,0 +1,12 @@
+/// SQL Server holding the SyncHub database. Docker default: localhost,14333.
+expression SqlServer = "localhost,14333" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: fb8d5cd4-9e6c-49fc-a47d-ea81fc675f85
+
+	annotation PBI_ResultType = Text
+
+/// The hub database; the model reads only its rpt (reporting) schema.
+expression SqlDatabase = "SyncHub" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: b9e4d0d3-76bb-4036-8cfa-f9d88d481ebb
+
+	annotation PBI_ResultType = Text
+

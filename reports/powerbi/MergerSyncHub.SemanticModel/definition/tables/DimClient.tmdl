@@ -1,0 +1,77 @@
+/// One row per client record; confirmed duplicates share a MasterClientKey.
+table DimClient
+	lineageTag: ecb972a9-f393-40bf-80c1-767da3b1b435
+
+	column ClientKey
+		dataType: int64
+		isHidden
+		lineageTag: b895f5c9-a781-4689-a891-b64c157a65e4
+		summarizeBy: none
+		sourceColumn: ClientKey
+
+	column Source
+		dataType: string
+		lineageTag: 7a309309-916f-4762-b78a-454f18a10e37
+		summarizeBy: none
+		sourceColumn: Source
+
+	column ClientName
+		dataType: string
+		lineageTag: 4b79d259-86f9-45f3-9996-a2f9725d4943
+		summarizeBy: none
+		sourceColumn: ClientName
+
+	column Country
+		dataType: string
+		lineageTag: 2e8f0f9a-4b2b-43ed-804d-50989e5fee72
+		dataCategory: Country
+		summarizeBy: none
+		sourceColumn: Country
+
+	column PostCode
+		dataType: string
+		lineageTag: 7e6df766-0a1a-4b43-a0e1-31d43a6f81d7
+		dataCategory: PostalCode
+		summarizeBy: none
+		sourceColumn: PostCode
+
+	column IsActive
+		dataType: boolean
+		lineageTag: bee3d826-453f-4d07-bdf2-c55cf183ad2a
+		summarizeBy: none
+		sourceColumn: IsActive
+
+	column MasterClientKey
+		dataType: int64
+		isHidden
+		lineageTag: f7c81cc7-f18a-4a41-a034-98fc418aa3ea
+		summarizeBy: none
+		sourceColumn: MasterClientKey
+
+	column MasterClientName
+		dataType: string
+		lineageTag: 2e20150f-910e-49d2-8505-d1611d35d78e
+		summarizeBy: none
+		sourceColumn: MasterClientName
+
+	column IsInDuplicateGroup
+		dataType: boolean
+		lineageTag: 9cf9e5e2-e0a5-4789-b71a-5f181591d834
+		summarizeBy: none
+		sourceColumn: IsInDuplicateGroup
+
+	column GroupSpansFirms
+		dataType: boolean
+		lineageTag: 448b8891-4480-46a1-b0b7-c6cfa852b827
+		summarizeBy: none
+		sourceColumn: GroupSpansFirms
+
+	partition DimClient = m
+		mode: import
+		source =
+				let
+				    Source = Sql.Database(SqlServer, SqlDatabase),
+				    Data = Source{[Schema = "rpt", Item = "DimClient"]}[Data]
+				in
+				    Data
+
