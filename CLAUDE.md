@@ -24,6 +24,7 @@ keep the "why" comments.
 | `src/CorpDirectory.Api` | Mock AD / Entra ID: sign-in, RS256 tokens, OIDC discovery + JWKS, joiner/leaver admin API |
 | `src/SyncHub.Observability` | `AddObservability()`: OpenTelemetry metrics + logs over OTLP, shared by all four services |
 | `src/SyncHub.Tests` | xUnit tests for Core (mappers, matching, UK time conversion) |
+| `src/SyncHub.IntegrationTests` | Needs Docker: Support API in memory (`WebApplicationFactory`, test-signed JWTs) + real procs in a Testcontainers SQL Server |
 | `dashboard/` | React + TS (Vite) support dashboard, port 5173 |
 | `directory-admin/` | React + TS (Vite) directory admin centre, port 5174 |
 | `reports/` | SSRS and Power BI build guides, `measures.dax` |
@@ -63,7 +64,8 @@ keep the "why" comments.
 
 ```powershell
 dotnet build src
-dotnet test src
+dotnet test src                    # unit + integration (integration needs Docker)
+dotnet test src/SyncHub.Tests      # unit only
 cd database; .\setup.ps1 -Server "localhost,14333" -User sa -Password '<sa password>'   # rebuilds ALL databases
 ```
 
@@ -98,6 +100,9 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
   reset `time_since_success` and hide a stopped scheduled sync.
 - **Dashboard:** edit `monitoring/grafana/make_dashboard.py`, then regenerate `dashboards/synchub.json` from it.
 - **Logs:** message templates, not interpolation; never log passwords or tokens; scopes (Source, CorrelationId) reach Loki as structured metadata.
+- **Tests:** a new Support API endpoint gets a role test in `ApiAuthorizationTests` (who gets 403). A change to a
+  merge procedure gets a case in `MergeTests`. Integration tests share one SQL container: isolate each test with
+  `SqlServerFixture.NewSource()` rather than resetting the database.
 - **UK English** in UI text and docs. Keep comments that explain trade-offs.
 
 ## Gotchas already hit

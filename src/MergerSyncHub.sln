@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CorpDirectory.Api", "CorpDi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SyncHub.Observability", "SyncHub.Observability\SyncHub.Observability.csproj", "{8446E312-FD20-4E2F-B973-9E31772FA422}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SyncHub.IntegrationTests", "SyncHub.IntegrationTests\SyncHub.IntegrationTests.csproj", "{AE9CD628-B975-42F4-8018-B0F8931A3EAA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -111,6 +113,18 @@ Global
 		{8446E312-FD20-4E2F-B973-9E31772FA422}.Release|x64.Build.0 = Release|Any CPU
 		{8446E312-FD20-4E2F-B973-9E31772FA422}.Release|x86.ActiveCfg = Release|Any CPU
 		{8446E312-FD20-4E2F-B973-9E31772FA422}.Release|x86.Build.0 = Release|Any CPU
+		{AE9CD628-B975-42F4-8018-B0F8931A3EAA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AE9CD628-B975-42F4-8018-B0F8931A3EAA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AE9CD628-B975-42F4-8018-B0F8931A3EAA}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{AE9CD628-B975-42F4-8018-B0F8931A3EAA}.Debug|x64.Build.0 = Debug|Any CPU
+		{AE9CD628-B975-42F4-8018-B0F8931A3EAA}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{AE9CD628-B975-42F4-8018-B0F8931A3EAA}.Debug|x86.Build.0 = Debug|Any CPU
+		{AE9CD628-B975-42F4-8018-B0F8931A3EAA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AE9CD628-B975-42F4-8018-B0F8931A3EAA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AE9CD628-B975-42F4-8018-B0F8931A3EAA}.Release|x64.ActiveCfg = Release|Any CPU
+		{AE9CD628-B975-42F4-8018-B0F8931A3EAA}.Release|x64.Build.0 = Release|Any CPU
+		{AE9CD628-B975-42F4-8018-B0F8931A3EAA}.Release|x86.ActiveCfg = Release|Any CPU
+		{AE9CD628-B975-42F4-8018-B0F8931A3EAA}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

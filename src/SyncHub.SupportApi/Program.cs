@@ -188,3 +188,6 @@ public sealed record NoteBody(string? Note);
 public sealed record BulkReplay(string? Source, string? ErrorType);
 public sealed record DuplicateDecision(string? Decision);
 public sealed record PracticeAreaMapping(string? Source, string? SourceCode, string? PracticeArea);
+
+// Public so the integration tests can host the API in memory (WebApplicationFactory<Program>).
+public partial class Program;
