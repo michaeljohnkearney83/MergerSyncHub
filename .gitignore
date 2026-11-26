@@ -1,0 +1,26 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+
+# Secrets
+.env
+
+# Node
+node_modules/
+dist/
+.env.local
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Directory token signing key (generated on first run)
+signing-key.pem
+
+# Claude Code personal settings
+.claude/settings.local.json

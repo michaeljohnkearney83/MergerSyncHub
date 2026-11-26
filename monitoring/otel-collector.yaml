@@ -1,0 +1,51 @@
+# OpenTelemetry Collector: one place the services send to, so they never need to know
+# whether metrics end up in Prometheus, Azure Monitor or Datadog. Swapping a back end is a
+# change here, not a redeploy of every service.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # Protects the collector itself if a service floods it.
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 256
+  # Sends in batches instead of one request per data point.
+  batch: {}
+
+exporters:
+  # Prometheus pulls from here. Each service's service.name becomes the "job" label.
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    # Drop series that stop being reported (a service that was stopped) after 5 minutes.
+    metric_expiration: 5m
+
+  # Loki 3 accepts OTLP natively. service.name becomes the service_name label; log attributes
+  # (Source, CorrelationId, SyncRunId...) become structured metadata you can filter on.
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+
+  # Uncomment and add to a pipeline to see what arrives, when debugging the collector.
+  # debug:
+  #   verbosity: detailed
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+
+service:
+  extensions: [health_check]
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/loki]

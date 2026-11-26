@@ -1,0 +1,2 @@
+# Git hooks run under bash; CRLF line endings would break them on Windows checkouts.
+.githooks/* text eol=lf

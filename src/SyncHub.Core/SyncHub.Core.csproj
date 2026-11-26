@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Pure logic: models, mapping, validation and duplicate matching. No database or HTTP code. -->
+</Project>

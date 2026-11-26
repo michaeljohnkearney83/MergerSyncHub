@@ -1,0 +1,79 @@
+// =====================================================================
+// SyncHub Power BI measures
+// Create a table called "_Measures" (Home > Enter data, one blank column,
+// then delete the column) and add each measure below to it.
+// Table names assume the rpt.* tables were loaded without the "rpt " prefix.
+// =====================================================================
+
+// ---------- Volume ----------
+Total Matters =
+COUNTROWS ( FactMatter )
+
+Open Matters =
+CALCULATE ( [Total Matters], FactMatter[IsOpen] = TRUE () )
+
+Matters Opened =
+// Uses the active relationship FactMatter[OpenedDateKey] -> DimDate[DateKey]
+[Total Matters]
+
+Matters Closed =
+CALCULATE (
+    [Total Matters],
+    USERELATIONSHIP ( FactMatter[ClosedDateKey], DimDate[DateKey] )
+)
+
+Matters Opened YTD (Financial) =
+// UK-style financial year ending 31 March. The year-end string follows your locale:
+// "31/3" for en-GB, "3/31" for en-US.
+TOTALYTD ( [Matters Opened], DimDate[Date], "31/3" )
+
+Matters Opened vs Prior Year % =
+VAR ThisPeriod = [Matters Opened]
+VAR PriorPeriod = CALCULATE ( [Matters Opened], SAMEPERIODLASTYEAR ( DimDate[Date] ) )
+RETURN DIVIDE ( ThisPeriod - PriorPeriod, PriorPeriod )
+
+Average Days Open =
+AVERAGE ( FactMatter[DaysOpen] )
+
+// ---------- Clients after de-duplication ----------
+Client Records =
+DISTINCTCOUNT ( DimClient[ClientKey] )
+
+Unique Clients =
+// Confirmed duplicates share a MasterClientKey, so they count once
+DISTINCTCOUNT ( DimClient[MasterClientKey] )
+
+Duplicate Records % =
+DIVIDE ( [Client Records] - [Unique Clients], [Client Records] )
+
+Shared Clients (Both Firms) =
+// Clients that instructed both legacy firms: the cross-selling and conflicts story of the merger
+CALCULATE ( [Unique Clients], DimClient[GroupSpansFirms] = TRUE () )
+
+Top Client by Matters =
+VAR Ranked =
+    TOPN ( 1, VALUES ( DimClient[MasterClientName] ), [Total Matters], DESC )
+RETURN CONCATENATEX ( Ranked, DimClient[MasterClientName], ", " )
+
+// ---------- Data quality ----------
+Unmapped Matters =
+CALCULATE ( [Total Matters], DimPracticeArea[PracticeArea] = "Unmapped" )
+
+Unmapped Matters % =
+DIVIDE ( [Unmapped Matters], [Total Matters] )
+
+Open Exceptions (Latest) =
+// Snapshot table: take the most recent day rather than summing every day
+VAR LatestDate = MAX ( FactDataQualityDaily[SnapshotDate] )
+RETURN CALCULATE ( SUM ( FactDataQualityDaily[OpenExceptions] ), FactDataQualityDaily[SnapshotDate] = LatestDate )
+
+Pending Duplicate Reviews (Latest) =
+VAR LatestDate = MAX ( FactDataQualityDaily[SnapshotDate] )
+RETURN CALCULATE ( SUM ( FactDataQualityDaily[PendingDuplicateReviews] ), FactDataQualityDaily[SnapshotDate] = LatestDate )
+
+Data Quality Score =
+// Simple 0-100 indicator for the dashboard header: share of matters that are mapped,
+// less a penalty for open exceptions relative to volume. Tune the weights with the business.
+VAR Mapped = 1 - [Unmapped Matters %]
+VAR ExceptionRate = DIVIDE ( [Open Exceptions (Latest)], [Total Matters] )
+RETURN ROUND ( 100 * MAX ( 0, Mapped - ExceptionRate * 10 ), 0 )

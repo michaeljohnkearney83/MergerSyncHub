@@ -1,0 +1,105 @@
+using System.Diagnostics;
+using Microsoft.Extensions.Options;
+using SyncHub.Core.Models;
+using SyncHub.Worker.Data;
+using SyncHub.Worker.Pipeline;
+using SyncHub.Worker.Sources;
+
+namespace SyncHub.Worker;
+
+/// <summary>
+/// One full cycle. Each step is isolated: a failure in one (Firm B being down, say)
+/// is logged and the remaining steps still run.
+/// Scoped, because the Firm B connector wraps a typed HttpClient that should not be
+/// held for the lifetime of the app.
+/// </summary>
+public sealed class SyncCycle(
+    IEnumerable<ISourceConnector> connectors,
+    SourceSyncService sourceSync,
+    ReplayService replay,
+    DuplicateDetectionService duplicates,
+    HousekeepingService housekeeping,
+    SyncMetrics metrics,
+    ILogger<SyncCycle> logger)
+{
+    public async Task RunAsync(CancellationToken ct)
+    {
+        await StepAsync("Replay queued dead letters", () => replay.RunAsync(ct), ct);
+
+        foreach (var connector in connectors)
+            await StepAsync($"Sync {connector.Source}", () => sourceSync.SyncAsync(connector, ct), ct);
+
+        await StepAsync("Duplicate detection", duplicates.RunAsync, ct);
+        await StepAsync("Reporting refresh", housekeeping.RefreshReportingIfDueAsync, ct);
+        await StepAsync("Staging purge", housekeeping.PurgeStagingIfDueAsync, ct);
+    }
+
+    private async Task StepAsync(string name, Func<Task> step, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        try
+        {
+            await step();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            metrics.StepFailed(name);
+            logger.LogError(ex, "Step '{Step}' failed; continuing with the rest of the cycle", name);
+        }
+    }
+}
+
+public sealed class SyncWorker(
+    IServiceScopeFactory scopeFactory,
+    SyncHubRepository repository,
+    SyncMetrics metrics,
+    IOptions<SyncOptions> options,
+    ILogger<SyncWorker> logger) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        if (!await CanReachDatabaseAsync(stoppingToken)) return;
+
+        foreach (var source in (string[])[SourceSystems.FirmA, SourceSystems.FirmB])
+            metrics.TrackSource(source);
+
+        var interval = TimeSpan.FromSeconds(options.Value.IntervalSeconds);
+        logger.LogInformation("SyncHub worker started; running every {Interval}", interval);
+
+        using var timer = new PeriodicTimer(interval);
+        try
+        {
+            do
+            {
+                var stopwatch = Stopwatch.StartNew();
+                await using (var scope = scopeFactory.CreateAsyncScope())
+                {
+                    await scope.ServiceProvider.GetRequiredService<SyncCycle>().RunAsync(stoppingToken);
+                }
+                metrics.CycleCompleted(stopwatch.Elapsed);
+                logger.LogInformation("Cycle complete in {Elapsed:N1}s", stopwatch.Elapsed.TotalSeconds);
+            }
+            while (await timer.WaitForNextTickAsync(stoppingToken));
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            logger.LogInformation("SyncHub worker stopping");
+        }
+    }
+
+    private async Task<bool> CanReachDatabaseAsync(CancellationToken ct)
+    {
+        try
+        {
+            await repository.CheckConnectivityAsync(ct);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogCritical(ex,
+                "Cannot connect to the SyncHub database. Check ConnectionStrings:SyncHub in appsettings.json " +
+                "and that the database scripts in /database have been run.");
+            return false;
+        }
+    }
+}

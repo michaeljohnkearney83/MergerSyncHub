@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+#
+# post-commit: after each commit on a feature branch, merge the latest main into it, so conflicts
+# surface while the change is small and fresh rather than at pull-request time.
+#
+# Enabled with the other hooks:   git config core.hooksPath .githooks
+#
+# Behaviour:
+#   * Only runs on branches matching AUTO_MERGE_BRANCHES (default "feature/*").
+#   * Merges origin/main when there is a remote (fetching it first), otherwise the local main.
+#     Override the source with AUTO_MERGE_BASE=develop (or origin/develop).
+#   * Does nothing if main has no new commits, or during a rebase, cherry-pick, revert or merge.
+#   * Never leaves you mid-merge: on a conflict it aborts and tells you which files clash, so you can
+#     merge by hand when ready. A post-commit hook can't undo the commit you just made, and doesn't try.
+#   * `git merge` doesn't trigger post-commit, so the merge commit itself won't re-run this hook.
+#
+# Skip once:   SKIP_AUTO_MERGE=1 git commit ...
+
+set -uo pipefail
+
+[[ "${SKIP_AUTO_MERGE:-0}" == "1" ]] && exit 0
+
+branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null)" || exit 0   # detached HEAD
+matched=0
+for pattern in ${AUTO_MERGE_BRANCHES:-feature/*}; do
+    # shellcheck disable=SC2053  # pattern match is intended
+    [[ "$branch" == $pattern ]] && matched=1
+done
+[[ $matched -eq 0 ]] && exit 0
+
+git_dir="$(git rev-parse --git-dir)"
+for state in rebase-merge rebase-apply MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD; do
+    [[ -e "$git_dir/$state" ]] && exit 0
+done
+
+# Work out what to merge from.
+base="${AUTO_MERGE_BASE:-}"
+if [[ -z "$base" ]]; then
+    if git remote get-url origin >/dev/null 2>&1; then
+        # Keep commits snappy: give up on the fetch after 15 seconds and use what we already have.
+        if ! GIT_TERMINAL_PROMPT=0 timeout 15 git fetch --quiet origin main 2>/dev/null; then
+            echo "post-commit: couldn't fetch origin/main; using the last fetched copy." >&2
+        fi
+        base="origin/main"
+    else
+        base="main"
+    fi
+fi
+
+git rev-parse --verify --quiet "$base^{commit}" >/dev/null || exit 0     # no main yet (new repo)
+
+if git merge-base --is-ancestor "$base" HEAD; then
+    exit 0                                                                  # already up to date
+fi
+
+behind="$(git rev-list --count "HEAD..$base")"
+echo "post-commit: merging $base into $branch ($behind new commit(s))..."
+
+if git merge --no-edit --no-ff "$base" -m "Merge $base into $branch" >/dev/null 2>&1; then
+    echo "post-commit: merged $base into $branch."
+else
+    conflicts="$(git diff --name-only --diff-filter=U)"
+    git merge --abort 2>/dev/null
+    echo "post-commit: merging $base into $branch would conflict, so it was not merged." >&2
+    if [[ -n "$conflicts" ]]; then
+        echo "post-commit: conflicting files:" >&2
+        echo "$conflicts" | sed 's/^/    /' >&2
+    else
+        echo "post-commit: (or uncommitted changes in your working tree are in the way)" >&2
+    fi
+    echo "post-commit: your commit is safe. Resolve when ready with: git merge $base" >&2
+fi
+
+exit 0   # post-commit can't fail a commit; never pretend otherwise

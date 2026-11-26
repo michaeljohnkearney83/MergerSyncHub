@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!-- Mock corporate directory (stands in for Active Directory / Microsoft Entra ID).
+       Signs users in, issues RS256 tokens with role claims, publishes its keys (OIDC discovery + JWKS),
+       and provides joiner / mover / leaver admin endpoints. -->
+  <PropertyGroup>
+    <UserSecretsId>corpdirectory-api</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Dapper" Version="2.1.35" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SyncHub.Observability\SyncHub.Observability.csproj" />
+  </ItemGroup>
+</Project>

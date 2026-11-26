@@ -1,0 +1,95 @@
+# Optional: run SQL Server in Docker instead of (or alongside) a local install.
+# Exposed on 14333 so it does not clash with a local SQL Server on 1433.
+#
+# The sa password comes from a .env file next to this one (Compose reads it automatically).
+# .env is excluded from Git: copy .env.example to .env and choose a password first.
+# SQL Server only uses it when the data volume is first created; changing it later
+# means resetting the volume (docker compose down -v), which deletes the data.
+#
+# The monitoring stack (collector, Prometheus, Loki, Grafana) is in the "monitoring" profile,
+# so `docker compose up -d` still starts only SQL Server. Start everything with:
+#   docker compose --profile monitoring up -d
+#
+# How telemetry flows:
+#   .NET services --OTLP--> OpenTelemetry Collector --+--> Prometheus (metrics, scraped from :8889)
+#                                                      +--> Loki (logs, pushed over OTLP/HTTP)
+#   Grafana reads both, with the data sources and the dashboard provisioned from ./monitoring.
+#
+# Host ports are offset (14317/14318, 3033) because 4317/4318/3000 are often taken by other stacks.
+services:
+  sql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: synchub-sql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env}"
+      MSSQL_PID: "Developer"
+    ports:
+      - "14333:1433"
+    volumes:
+      - synchub-sql:/var/opt/mssql
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.130.0
+    container_name: synchub-otel-collector
+    profiles: ["monitoring"]
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./monitoring/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports:
+      - "14317:4317"   # OTLP gRPC (what the .NET services use)
+      - "14318:4318"   # OTLP HTTP
+    depends_on:
+      - loki
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: synchub-prometheus
+    profiles: ["monitoring"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert-rules.yml:/etc/prometheus/alert-rules.yml:ro
+      - synchub-prometheus:/prometheus
+    ports:
+      - "9090:9090"
+
+  loki:
+    image: grafana/loki:3.5.0
+    container_name: synchub-loki
+    profiles: ["monitoring"]
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ./monitoring/loki.yaml:/etc/loki/config.yaml:ro
+      - synchub-loki:/loki
+    ports:
+      - "3100:3100"
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    container_name: synchub-grafana
+    profiles: ["monitoring"]
+    environment:
+      # Local demo only: anonymous viewers, admin/admin for editing.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+      GF_SECURITY_ADMIN_USER: "admin"
+      GF_SECURITY_ADMIN_PASSWORD: "admin"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/synchub.json"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - synchub-grafana:/var/lib/grafana
+    ports:
+      - "3033:3000"
+    depends_on:
+      - prometheus
+      - loki
+
+volumes:
+  synchub-sql:
+  synchub-prometheus:
+  synchub-loki:
+  synchub-grafana:

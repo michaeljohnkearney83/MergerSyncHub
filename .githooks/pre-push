@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+#
+# pre-push: run the coding-standards Claude agent over what is being pushed to a feature branch.
+#
+# Install once per clone (hooks are not copied by git clone):
+#     git config core.hooksPath .githooks
+#
+# Behaviour:
+#   * Only pushes to refs matching STANDARDS_BRANCHES (default "feature/*") are checked.
+#   * Reviews the commits being pushed: remote..local for an existing branch, or everything
+#     since the merge base with the default branch for a new one.
+#   * Blocks the push if the agent reports any blocking finding (its last line is "VERDICT: FAIL").
+#   * Fails open if the claude CLI is missing or errors, because a broken tool should not stop
+#     anyone shipping. Set STANDARDS_FAIL_CLOSED=1 to block in that case instead.
+#
+# Skip once:   git push --no-verify        or    SKIP_STANDARDS=1 git push
+# Settings:    STANDARDS_BRANCHES="feature/* bugfix/*"   STANDARDS_BASE=main   STANDARDS_MAX_DIFF_BYTES=200000
+
+set -uo pipefail
+
+[[ "${SKIP_STANDARDS:-0}" == "1" ]] && { echo "pre-push: coding standards skipped (SKIP_STANDARDS=1)"; exit 0; }
+
+branch_patterns="${STANDARDS_BRANCHES:-feature/*}"
+max_bytes="${STANDARDS_MAX_DIFF_BYTES:-200000}"
+zero="0000000000000000000000000000000000000000"
+repo_root="$(git rev-parse --show-toplevel)"
+
+fail_tool() {
+    echo "pre-push: $1" >&2
+    if [[ "${STANDARDS_FAIL_CLOSED:-0}" == "1" ]]; then exit 1; fi
+    echo "pre-push: continuing without the standards check (set STANDARDS_FAIL_CLOSED=1 to block)." >&2
+    exit 0
+}
+
+default_base() {
+    if [[ -n "${STANDARDS_BASE:-}" ]]; then echo "$STANDARDS_BASE"; return; fi
+    local remote_head
+    remote_head="$(git symbolic-ref --quiet --short "refs/remotes/$1/HEAD" 2>/dev/null)"
+    if [[ -n "$remote_head" ]]; then echo "$remote_head"; return; fi
+    for b in "$1/main" "$1/master" main master; do
+        git rev-parse --verify --quiet "$b" >/dev/null && { echo "$b"; return; }
+    done
+}
+
+remote_name="${1:-origin}"
+status=0
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [[ -z "${local_ref:-}" ]] && continue
+    [[ "$local_sha" == "$zero" ]] && continue                 # deleting a branch: nothing to review
+
+    branch="${remote_ref#refs/heads/}"
+    matched=0
+    for pattern in $branch_patterns; do
+        # shellcheck disable=SC2053  # pattern match is intended
+        [[ "$branch" == $pattern ]] && matched=1
+    done
+    [[ $matched -eq 0 ]] && continue
+
+    if [[ "$remote_sha" != "$zero" ]] && git cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
+        range="$remote_sha..$local_sha"
+    else
+        base="$(default_base "$remote_name")"
+        if [[ -n "$base" ]]; then
+            range="$(git merge-base "$base" "$local_sha")..$local_sha"
+        else
+            range="$local_sha"                                 # no base branch at all: review the whole tip
+        fi
+    fi
+
+    if [[ "$range" == *..* ]]; then
+        files="$(git diff --name-only "$range")"
+        diff="$(git diff --unified=3 "$range")"
+    else
+        files="$(git show --name-only --format= "$range")"
+        diff="$(git show --unified=3 --format= "$range")"
+    fi
+
+    if [[ -z "$files" ]]; then
+        echo "pre-push: $branch has no file changes to check."
+        continue
+    fi
+
+    command -v claude >/dev/null 2>&1 || fail_tool "the claude CLI is not on PATH."
+
+    truncated=""
+    if (( ${#diff} > max_bytes )); then
+        diff="${diff:0:max_bytes}"
+        truncated="The diff was truncated at $max_bytes bytes; read the remaining changed files directly."
+    fi
+
+    echo "pre-push: checking coding standards for $branch ($(echo "$files" | wc -l | tr -d ' ') file(s))..."
+
+    prompt="Review this push to branch '$branch' (range $range) against the coding standards.
+$truncated
+
+Changed files:
+$files
+
+Diff:
+$diff"
+
+    # The agent file (.claude/agents/coding-standards.md) sets the rules, the read-only tools and the model.
+    output="$(cd "$repo_root" && printf '%s' "$prompt" | claude -p --agent coding-standards --allowedTools "Read,Grep,Glob" 2>&1)"
+    rc=$?
+    [[ $rc -ne 0 ]] && fail_tool "the standards agent failed (exit $rc): $(echo "$output" | tail -n 3)"
+
+    echo "$output"
+    verdict="$(echo "$output" | tr -d '\r' | grep -E '^VERDICT: (PASS|FAIL)$' | tail -n 1)"
+    case "$verdict" in
+        "VERDICT: PASS") ;;
+        "VERDICT: FAIL")
+            echo >&2
+            echo "pre-push: blocked by coding standards. Fix the blocking items, or skip once with 'git push --no-verify'." >&2
+            status=1 ;;
+        *)  fail_tool "the agent gave no VERDICT line." ;;
+    esac
+done
+
+exit $status

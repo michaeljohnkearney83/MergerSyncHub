@@ -1,0 +1,34 @@
+# Alerts a third-line support team would actually be paged for. They are about outcomes
+# (is data flowing, is it correct) rather than causes (CPU, memory), which keeps them few.
+# No Alertmanager is wired up in this demo: see them firing at http://localhost:9090/alerts.
+groups:
+  - name: synchub
+    rules:
+      - alert: SyncStale
+        # Neither a success nor a "succeeded with errors" run for 10 minutes (the interval is 1 minute).
+        expr: synchub_sync_time_since_success_seconds > 600
+        for: 2m
+        labels:
+          severity: page
+        annotations:
+          summary: "{{ $labels.source }} has not synced for {{ $value | humanizeDuration }}"
+          description: "Check the worker logs in Grafana (Loki) for this source; the watermark is not moving."
+
+      - alert: SyncRunsFailing
+        expr: sum by (source) (increase(synchub_sync_runs_total{outcome="Failed"}[15m])) >= 3
+        labels:
+          severity: page
+        annotations:
+          summary: "{{ $labels.source }}: {{ $value }} failed sync runs in 15 minutes"
+
+      - alert: HighRejectionRate
+        # More than 5% of records read are being dead-lettered.
+        expr: |
+          sum by (source) (rate(synchub_records_rejected_total[15m]))
+            / sum by (source) (rate(synchub_records_read_total[15m])) > 0.05
+        for: 10m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "{{ $labels.source }}: {{ $value | humanizePercentage }} of records rejected"
+          description: "Look at the dead letters in the support dashboard, grouped by error type."

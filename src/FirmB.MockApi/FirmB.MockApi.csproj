@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Web"><!-- Stands in for the legacy US firm's practice management REST API.
+       Generates deterministic data with deliberate faults: outages, slow responses and bad records. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\SyncHub.Observability\SyncHub.Observability.csproj" />
+  </ItemGroup>
+</Project>
