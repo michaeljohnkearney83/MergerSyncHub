@@ -1201,6 +1201,119 @@
         "enableLogDetails": true,
         "dedupStrategy": "none"
       }
+    },
+    {
+      "type": "row",
+      "title": "Browser (Grafana Faro: what the server can't see)",
+      "id": 28,
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 72,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Browser errors and failed API calls",
+      "description": "From the React apps via Faro. API unreachable = the request never reached the server (down, wrong URL, CORS), so it is invisible in the API panels.",
+      "id": 29,
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 73,
+        "w": 10,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (service_name) (count_over_time({service_name=~\"support-web|directory-web\", kind=\"exception\"}[5m]))",
+          "legendFormat": "{{service_name}} JS errors"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (service_name) (count_over_time({service_name=~\"support-web|directory-web\", kind=\"event\"} |= \"event_name=api_unreachable\" [5m]))",
+          "legendFormat": "{{service_name}} API unreachable"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (service_name) (count_over_time({service_name=~\"support-web|directory-web\", kind=\"event\"} |= \"event_name=api_error\" [5m]))",
+          "legendFormat": "{{service_name}} API 5xx"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 20,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Browser errors and failed API calls (detail)",
+      "description": "Stack traces and failing API paths. No user identity, and query strings are stripped before sending.",
+      "id": 30,
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 73,
+        "w": 14,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{service_name=~\"support-web|directory-web\"} |~ \"kind=exception|event_name=api_(unreachable|error)\""
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "dedupStrategy": "none"
+      }
     }
   ]
 }

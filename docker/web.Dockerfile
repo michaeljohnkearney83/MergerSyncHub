@@ -9,7 +9,9 @@ RUN npm ci
 COPY ${APP}/ .
 ARG VITE_API_URL=http://localhost:5081
 ARG VITE_DIRECTORY_URL=http://localhost:5090
-ENV VITE_API_URL=${VITE_API_URL} VITE_DIRECTORY_URL=${VITE_DIRECTORY_URL}
+# Empty means browser telemetry is off (see src/telemetry.ts).
+ARG VITE_FARO_URL=
+ENV VITE_API_URL=${VITE_API_URL} VITE_DIRECTORY_URL=${VITE_DIRECTORY_URL} VITE_FARO_URL=${VITE_FARO_URL}
 RUN npm run build
 
 FROM nginx:1.27-alpine

@@ -2,6 +2,7 @@ import type {
   ClientLookup, DeadLetter, DeadLetterDetail, Duplicate, ErrorTypeCount, ReconciliationRow, Run, RunEntity, Summary, UnmappedCode,
 } from './types'
 import { currentToken, notifyUnauthorized } from './auth'
+import { reportApiError, reportApiUnreachable } from './telemetry'
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:5080'
 
@@ -23,6 +24,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       },
     })
   } catch {
+    reportApiUnreachable('support-api', path)
     throw new Error(`Cannot reach the Support API at ${BASE}. Is SyncHub.SupportApi running?`)
   }
 
@@ -36,6 +38,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   const text = await response.text()
   if (!response.ok) {
+    reportApiError('support-api', path, response.status)
     let message = `${response.status} ${response.statusText}`
     try {
       const body = JSON.parse(text) as { error?: string; title?: string }

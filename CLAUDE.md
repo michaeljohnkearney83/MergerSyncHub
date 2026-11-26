@@ -29,7 +29,7 @@ keep the "why" comments.
 | `directory-admin/` | React + TS (Vite) directory admin centre, port 5174 |
 | `reports/` | SSRS and Power BI build guides, `measures.dax` |
 | `docker/` | `dotnet.Dockerfile` (all four services, `PROJECT` build arg), `web.Dockerfile` (both React apps), `nginx.conf`, `db-init.sh` |
-| `monitoring/` | Collector, Prometheus (+ `alert-rules.yml`), Loki, Grafana provisioning and `dashboards/synchub.json` |
+| `monitoring/` | Collector, Prometheus (+ `alert-rules.yml`), Loki, Alloy (`alloy.alloy`, Faro receiver), Grafana provisioning and `dashboards/synchub.json` |
 | `docs/interview-guide.md` | Maps the project to interview questions; STAR answers |
 | `.claude/agents/sql-reviewer.md` | Read-only subagent that reviews T-SQL and Dapper SQL against the SQL conventions below |
 | `.claude/agents/observability-advisor.md` | Read-only subagent that suggests logs, metrics, alerts and Grafana panels |
@@ -50,6 +50,7 @@ keep the "why" comments.
 - **Monitoring** is the compose profile `monitoring` (`docker compose --profile monitoring up -d`):
   Grafana **3033**, Prometheus 9090, Loki 3100, collector OTLP **14317** (gRPC) / 14318. Ports 3000 and
   4317/4318 belong to the video downloader's `otel-lgtm` container. Never point anything at them.
+  Grafana Alloy (Faro receiver for browser telemetry) is on **12347**.
 - **Start order:** CorpDirectory.Api → FirmB.MockApi → SyncHub.Worker → SyncHub.SupportApi → the two React apps.
 - **Or all in Docker:** `docker compose --profile app --profile monitoring up -d --build`. Same host ports, so it
   and `dotnet run`/`npm run dev` can't run at once. Containers use environment `Docker` (not Development), so user
@@ -99,6 +100,9 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
 - **Replays** have their own counters (`synchub.replay.*`); never route them through `RunCompleted`, which would
   reset `time_since_success` and hide a stopped scheduled sync.
 - **Dashboard:** edit `monitoring/grafana/make_dashboard.py`, then regenerate `dashboards/synchub.json` from it.
+- **Browser telemetry:** each React app's `src/telemetry.ts` (Faro). Report through `reportApiUnreachable` /
+  `reportApiError`, never raw URLs or request bodies. Never attach user identity; keep performance (resource timing)
+  instrumentation off, because it sends full fetch URLs and client searches put client names in the query string.
 - **Logs:** message templates, not interpolation; never log passwords or tokens; scopes (Source, CorrelationId) reach Loki as structured metadata.
 - **Tests:** a new Support API endpoint gets a role test in `ApiAuthorizationTests` (who gets 403). A change to a
   merge procedure gets a case in `MergeTests`. Integration tests share one SQL container: isolate each test with

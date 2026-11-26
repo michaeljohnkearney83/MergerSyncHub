@@ -1,0 +1,35 @@
+// Grafana Alloy: receives browser telemetry from the React apps (Grafana Faro) and writes it to Loki.
+// The .NET services don't use this; they send OTLP to the OpenTelemetry Collector.
+
+faro.receiver "browser" {
+  server {
+    listen_address = "0.0.0.0"
+    listen_port    = 12347
+    // Browsers only send cross-origin data to receivers that allow their origin.
+    cors_allowed_origins = ["http://localhost:5173", "http://localhost:5174"]
+  }
+
+  output {
+    logs = [loki.process.browser.receiver]
+  }
+}
+
+// Faro writes each item as a logfmt line (kind=exception app_name=support-web ...).
+// Lift two low-cardinality fields into labels so Grafana can filter on them:
+//   service_name: the app (support-web, directory-web), matching the .NET services' label
+//   kind:         exception, log, event or measurement
+loki.process "browser" {
+  stage.logfmt {
+    mapping = { "kind" = "", "app_name" = "" }
+  }
+  stage.labels {
+    values = { "kind" = "", "service_name" = "app_name" }
+  }
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

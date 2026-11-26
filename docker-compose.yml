@@ -14,6 +14,7 @@
 #   .NET services --OTLP--> OpenTelemetry Collector --+--> Prometheus (metrics, scraped from :8889)
 #                                                      +--> Loki (logs, pushed over OTLP/HTTP)
 #   Grafana reads both, with the data sources and the dashboard provisioned from ./monitoring.
+#   React apps --Faro--> Grafana Alloy (:12347) --> Loki (browser errors, failed API calls, web vitals)
 #
 # Host ports are offset (14317/14318, 3033) because 4317/4318/3000 are often taken by other stacks.
 #
@@ -164,6 +165,7 @@ services:
         APP: dashboard
         VITE_API_URL: "http://localhost:5081"
         VITE_DIRECTORY_URL: "http://localhost:5090"
+        VITE_FARO_URL: "http://localhost:12347/collect"
     image: synchub/dashboard
     container_name: synchub-support-web
     profiles: ["app"]
@@ -178,6 +180,7 @@ services:
       args:
         APP: directory-admin
         VITE_DIRECTORY_URL: "http://localhost:5090"
+        VITE_FARO_URL: "http://localhost:12347/collect"
     image: synchub/directory-admin
     container_name: synchub-directory-web
     profiles: ["app"]
@@ -195,6 +198,19 @@ services:
     ports:
       - "14317:4317"   # OTLP gRPC (what the .NET services use)
       - "14318:4318"   # OTLP HTTP
+    depends_on:
+      - loki
+
+  alloy:
+    # Receives browser telemetry (Grafana Faro) from the two React apps and forwards it to Loki.
+    image: grafana/alloy:v1.22.0
+    container_name: synchub-alloy
+    profiles: ["monitoring"]
+    command: ["run", "/etc/alloy/config.alloy", "--server.http.listen-addr=0.0.0.0:12345", "--storage.path=/var/lib/alloy/data"]
+    volumes:
+      - ./monitoring/alloy.alloy:/etc/alloy/config.alloy:ro
+    ports:
+      - "12347:12347"   # Faro collector endpoint (http://localhost:12347/collect)
     depends_on:
       - loki
 

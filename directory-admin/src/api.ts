@@ -1,4 +1,5 @@
 import { currentToken, DIRECTORY_URL, notifyUnauthorized } from './auth'
+import { reportApiError, reportApiUnreachable } from './telemetry'
 import type { AuditEvent, DirectoryOptions, Group, Profile, UserDetail, UserSummary, WithTemporaryPassword } from './types'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -15,6 +16,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(init?.headers ?? {}) },
     })
   } catch {
+    reportApiUnreachable('directory-api', `/api/admin${path}`)
     throw new Error(`Cannot reach the directory at ${DIRECTORY_URL}. Is CorpDirectory.Api running?`)
   }
 
@@ -26,6 +28,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   const text = await response.text()
   if (!response.ok) {
+    reportApiError('directory-api', `/api/admin${path}`, response.status)
     let message = `${response.status} ${response.statusText}`
     try {
       const body = JSON.parse(text) as { message?: string; error?: string; title?: string }

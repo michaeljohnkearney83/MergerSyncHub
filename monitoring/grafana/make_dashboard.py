@@ -15,9 +15,10 @@ def stat(title,expr,x,y,w=6,h=4,unit="short",thresholds=None,legend="",desc=""):
       "targets":[{"refId":"A","datasource":P,"expr":expr,"legendFormat":legend,"instant":True}],
       "options":{"reduceOptions":{"calcs":["lastNotNull"]},"colorMode":"background","graphMode":"none","textMode":"value_and_name" if legend else "value"},
       "fieldConfig":{"defaults":{"unit":unit,"thresholds":{"mode":"absolute","steps":thresholds or [{"color":"green","value":None}]}},"overrides":[]}})
-def ts(title,targets,x,y,w=12,h=8,unit="short",stack=False,desc="",draw="line"):
-    panels.append({"type":"timeseries","title":title,"description":desc,"id":nid(),"datasource":P,"gridPos":{"x":x,"y":y+OFF[0],"w":w,"h":h},
-      "targets":[{"refId":chr(65+i),"datasource":P,"expr":e,"legendFormat":lf} for i,(e,lf) in enumerate(targets)],
+def ts(title,targets,x,y,w=12,h=8,unit="short",stack=False,desc="",draw="line",ds=None):
+    ds=ds or P
+    panels.append({"type":"timeseries","title":title,"description":desc,"id":nid(),"datasource":ds,"gridPos":{"x":x,"y":y+OFF[0],"w":w,"h":h},
+      "targets":[{"refId":chr(65+i),"datasource":ds,"expr":e,"legendFormat":lf} for i,(e,lf) in enumerate(targets)],
       "options":{"legend":{"displayMode":"list","placement":"bottom"},"tooltip":{"mode":"multi"}},
       "fieldConfig":{"defaults":{"unit":unit,"custom":{"drawStyle":draw,"fillOpacity":20 if stack else 5,"stacking":{"mode":"normal" if stack else "none"}}},"overrides":[]}})
 def logs(title,expr,x,y,w=24,h=10,desc=""):
@@ -68,6 +69,15 @@ row("Logs (Loki)",40)
 logs("Warnings and errors, all services",'{service_name=~"$service"} | severity_text=~"Warning|Error|Critical" | CorrelationId=~"$correlation"',0,41,h=10,
      desc="Expand a line to see Source, CorrelationId and SyncRunId. Paste a CorrelationId from the dashboard's run history into the variable above to see one run end to end.")
 logs("All logs",'{service_name=~"$service"} | CorrelationId=~"$correlation"',0,51,h=12)
+row("Browser (Grafana Faro: what the server can't see)",63)
+ts("Browser errors and failed API calls",[
+    ('sum by (service_name) (count_over_time({service_name=~"support-web|directory-web", kind="exception"}[5m]))',"{{service_name}} JS errors"),
+    ('sum by (service_name) (count_over_time({service_name=~"support-web|directory-web", kind="event"} |= "event_name=api_unreachable" [5m]))',"{{service_name}} API unreachable"),
+    ('sum by (service_name) (count_over_time({service_name=~"support-web|directory-web", kind="event"} |= "event_name=api_error" [5m]))',"{{service_name}} API 5xx"),
+  ],0,64,w=10,draw="bars",stack=True,ds=L,
+  desc="From the React apps via Faro. API unreachable = the request never reached the server (down, wrong URL, CORS), so it is invisible in the API panels.")
+logs("Browser errors and failed API calls (detail)",'{service_name=~"support-web|directory-web"} |~ "kind=exception|event_name=api_(unreachable|error)"',10,64,w=14,h=8,
+     desc="Stack traces and failing API paths. No user identity, and query strings are stripped before sending.")
 
 dash={"uid":"synchub-overview","title":"Merger Sync Hub","tags":["synchub"],"timezone":"browser","schemaVersion":41,"version":1,
  "refresh":"30s","time":{"from":"now-1h","to":"now"},"editable":True,"graphTooltip":1,
