@@ -55,7 +55,7 @@ app.MapGet("/.well-known/openid-configuration", (IOptions<DirectoryOptions> o, H
 {
     // The issuer is fixed: it's the name tokens are issued under, whoever is asking.
     // The endpoint URLs follow the address the caller actually used, so an API reaching us by
-    // another name (http://directory:8080 inside Docker) is sent to keys it can download,
+    // another name (http://directory-api:8080 inside Docker) is sent to keys it can download,
     // instead of to http://localhost:5090, which inside its container is itself.
     var issuer = o.Value.Issuer;
     var baseUrl = $"{request.Scheme}://{request.Host}{request.PathBase}";
