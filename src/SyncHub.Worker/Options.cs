@@ -21,6 +21,9 @@ public sealed class SyncOptions
     public int ReportingRefreshMinutes { get; set; } = 5;
 
     public int StagingRetentionDays { get; set; } = 7;
+
+    /// <summary>How often the SQL health snapshot behind the dead-letter and reconciliation gauges is read.</summary>
+    public int HealthSnapshotMinutes { get; set; } = 2;
 }
 
 public sealed class FirmBOptions

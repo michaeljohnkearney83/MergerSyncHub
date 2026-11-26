@@ -560,7 +560,7 @@
     },
     {
       "type": "row",
-      "title": "Firm B API (seen from the worker)",
+      "title": "Exception queue and reconciliation (from SQL, every 2 minutes)",
       "id": 12,
       "collapsed": false,
       "gridPos": {
@@ -572,9 +572,9 @@
       "panels": []
     },
     {
-      "type": "timeseries",
-      "title": "Firm B requests per second, by status",
-      "description": "Every attempt, including retries. 503s here are the mock's injected outages.",
+      "type": "stat",
+      "title": "Open dead letters",
+      "description": "Records waiting for support: fix, replay or ignore them in the support dashboard.",
       "id": 13,
       "datasource": {
         "type": "prometheus",
@@ -583,6 +583,300 @@
       "gridPos": {
         "x": 0,
         "y": 23,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(synchub_deadletters_open) or vector(0)",
+          "legendFormat": "",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Open dead letters by error type",
+      "description": "",
+      "id": 14,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 23,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (source, error_type) (synchub_deadletters_open)",
+          "legendFormat": "{{source}} {{error_type}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Oldest open dead letter",
+      "description": "DeadLettersAgeing fires above a day.",
+      "id": 15,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 23,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (source) (synchub_deadletters_oldest_open_age_seconds)",
+          "legendFormat": "{{source}}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 14400
+              },
+              {
+                "color": "red",
+                "value": 86400
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Reconciliation: unexplained records",
+      "description": "SourceTotal - InHub - Open - Ignored. Anything but 0 shows Investigate on the support dashboard.",
+      "id": 16,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 23,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "synchub_reconciliation_unexplained",
+          "legendFormat": "{{source}} {{entity}}",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value_and_name"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Replayed records (1h)",
+      "description": "Did the fixes support queued go through (resolved) or fail again?",
+      "id": 17,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 23,
+        "w": 4,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (source, outcome) (increase(synchub_replay_records_total[1h]))",
+          "legendFormat": "{{source}} {{outcome}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 20,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "type": "row",
+      "title": "Firm B API (seen from the worker)",
+      "id": 18,
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Firm B requests per second, by status",
+      "description": "Every attempt, including retries. 503s here are the mock's injected outages.",
+      "id": 19,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
         "w": 8,
         "h": 8
       },
@@ -624,14 +918,14 @@
       "type": "timeseries",
       "title": "Firm B latency (p95)",
       "description": "",
-      "id": 14,
+      "id": 20,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 8,
-        "y": 23,
+        "y": 32,
         "w": 8,
         "h": 8
       },
@@ -673,14 +967,14 @@
       "type": "timeseries",
       "title": "Resilience events (retries, circuit breaker)",
       "description": "Polly events from the Firm B resilience pipeline: OnRetry, OnCircuitOpened, OnTimeout...",
-      "id": 15,
+      "id": 21,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 16,
-        "y": 23,
+        "y": 32,
         "w": 8,
         "h": 8
       },
@@ -721,11 +1015,11 @@
     {
       "type": "row",
       "title": "APIs",
-      "id": 16,
+      "id": 22,
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 31,
+        "y": 40,
         "w": 24,
         "h": 1
       },
@@ -735,14 +1029,14 @@
       "type": "timeseries",
       "title": "Requests per second, by service and status",
       "description": "",
-      "id": 17,
+      "id": 23,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 32,
+        "y": 41,
         "w": 12,
         "h": 8
       },
@@ -784,14 +1078,14 @@
       "type": "timeseries",
       "title": "Latency p95, by route",
       "description": "",
-      "id": 18,
+      "id": 24,
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 12,
-        "y": 32,
+        "y": 41,
         "w": 12,
         "h": 8
       },
@@ -832,11 +1126,11 @@
     {
       "type": "row",
       "title": "Logs (Loki)",
-      "id": 19,
+      "id": 25,
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 40,
+        "y": 49,
         "w": 24,
         "h": 1
       },
@@ -846,14 +1140,14 @@
       "type": "logs",
       "title": "Warnings and errors, all services",
       "description": "Expand a line to see Source, CorrelationId and SyncRunId. Paste a CorrelationId from the dashboard's run history into the variable above to see one run end to end.",
-      "id": 20,
+      "id": 26,
       "datasource": {
         "type": "loki",
         "uid": "loki"
       },
       "gridPos": {
         "x": 0,
-        "y": 41,
+        "y": 50,
         "w": 24,
         "h": 10
       },
@@ -879,14 +1173,14 @@
       "type": "logs",
       "title": "All logs",
       "description": "",
-      "id": 21,
+      "id": 27,
       "datasource": {
         "type": "loki",
         "uid": "loki"
       },
       "gridPos": {
         "x": 0,
-        "y": 51,
+        "y": 60,
         "w": 24,
         "h": 12
       },

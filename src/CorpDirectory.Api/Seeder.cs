@@ -52,6 +52,7 @@ public static class Seeder
             await repo.AuditAsync("system", "UserCreated", upn, "Seed account");
         }
 
-        logger.LogInformation("Seeded {Count} demo accounts (password: {Password})", People.Length, options.SeedPassword);
+        // Never log the password itself: logs are shipped to Loki and searchable by anyone with Grafana access.
+        logger.LogInformation("Seeded {Count} demo accounts; their password is Directory:SeedPassword", People.Length);
     }
 }

@@ -394,6 +394,36 @@ BEGIN
 END;
 GO
 
+/* ===========================================================================
+   Health snapshot for monitoring. The worker reads this every few minutes and
+   publishes it as Prometheus gauges, so support can alert on state that only
+   lives in SQL: the exception queue and runs that never finished.
+   Read-only and cheap: DeadLetter is filtered on open statuses, SyncRun on a
+   short time window via IX_SyncRun_Started.
+=========================================================================== */
+CREATE OR ALTER PROCEDURE ops.usp_GetHealthSnapshot
+    @StuckAfterMinutes int = 30
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- 1. Open dead letters, by bounded labels only (no keys)
+    SELECT dl.Source, dl.Entity, dl.ErrorType,
+           OpenCount        = COUNT(*),
+           OldestAgeSeconds = DATEDIFF(SECOND, MIN(dl.CreatedAtUtc), SYSUTCDATETIME())
+      FROM ops.DeadLetter dl
+     WHERE dl.Status IN ('New', 'ReplayRequested')
+     GROUP BY dl.Source, dl.Entity, dl.ErrorType;
+
+    -- 2. Runs still 'Running' long after they started: the worker crashed or was killed mid-run
+    SELECT r.Source, r.RunType, StuckRuns = COUNT(*)
+      FROM ops.SyncRun r
+     WHERE r.Status = 'Running'
+       AND r.StartedAtUtc < DATEADD(MINUTE, -@StuckAfterMinutes, SYSUTCDATETIME())
+     GROUP BY r.Source, r.RunType;
+END;
+GO
+
 /* Housekeeping: staging is for audit and replay, not forever */
 CREATE OR ALTER PROCEDURE ops.usp_PurgeStaging
     @KeepDays int = 7

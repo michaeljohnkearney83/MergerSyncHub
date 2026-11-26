@@ -32,3 +32,54 @@ groups:
         annotations:
           summary: "{{ $labels.source }}: {{ $value | humanizePercentage }} of records rejected"
           description: "Look at the dead letters in the support dashboard, grouped by error type."
+
+      - alert: SyncWorkerMissing
+        # SyncStale needs the series to exist. If the worker process is gone (the collector drops its
+        # series after 5 minutes) there is nothing to compare, so alert on the absence itself.
+        expr: absent(synchub_sync_time_since_success_seconds)
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "The SyncHub worker is not reporting"
+          description: "Check the worker process is running and its logs in Loki for a start-up failure."
+
+      - alert: CycleStepFailing
+        # Catches failures outside a sync run: replay, duplicate detection, reporting refresh,
+        # staging purge, health snapshot, and SQL being down before a run can even start.
+        expr: sum by (step) (increase(synchub_cycle_step_failures_total[15m])) >= 3
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "Step '{{ $labels.step }}' failed {{ $value }} times in 15 minutes"
+          description: "LogQL: {service_name=\"SyncHub.Worker\"} | severity_text=\"Error\""
+
+      - alert: SyncRunStuck
+        expr: sum by (source, run_type) (synchub_sync_stuck_runs) > 0
+        for: 5m
+        labels:
+          severity: page
+        annotations:
+          summary: "{{ $labels.source }}: a {{ $labels.run_type }} run has been 'Running' for 30+ minutes"
+          description: "The worker probably died mid-run. Check ops.SyncRun and the worker logs for its CorrelationId."
+
+      - alert: ReconciliationInvestigate
+        # abs(): deletes in the source aren't handled, so Unexplained can be negative too.
+        # for: 15m because SourceTotal is read at the start of a run and can briefly disagree.
+        expr: abs(synchub_reconciliation_unexplained) > 0
+        for: 15m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "{{ $labels.source }} {{ $labels.entity }}: {{ $value }} record(s) unexplained"
+          description: "The support dashboard's reconciliation shows Investigate for this source and entity."
+
+      - alert: DeadLettersAgeing
+        expr: max by (source) (synchub_deadletters_oldest_open_age_seconds) > 86400
+        for: 30m
+        labels:
+          severity: ticket
+        annotations:
+          summary: "{{ $labels.source }}: oldest open dead letter is {{ $value | humanizeDuration }} old"
+          description: "Nobody has worked the exception queue for a day. Fix, replay or ignore in the support dashboard."

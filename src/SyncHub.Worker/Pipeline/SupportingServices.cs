@@ -10,7 +10,8 @@ namespace SyncHub.Worker.Pipeline;
 /// queued automatically because the client they were waiting for has arrived).
 /// The stored payload goes through the same mapper and merge as live data.
 /// </summary>
-public sealed class ReplayService(SyncHubRepository repository, MapperRegistry mappers, ILogger<ReplayService> logger)
+public sealed class ReplayService(
+    SyncHubRepository repository, MapperRegistry mappers, SyncMetrics metrics, ILogger<ReplayService> logger)
 {
     public async Task RunAsync(CancellationToken ct)
     {
@@ -68,12 +69,26 @@ public sealed class ReplayService(SyncHubRepository repository, MapperRegistry m
                 var failed = clientFailed + matterFailed + matterMerge.Failed;
                 var status = failed > 0 ? "SucceededWithErrors" : "Succeeded";
                 await repository.CompleteRunAsync(runId, status, null);
+
+                metrics.RecordsReplayed(group.Key, Entities.Client, "resolved", stagedClients);
+                metrics.RecordsReplayed(group.Key, Entities.Client, "failed_again", clientFailed);
+                metrics.RecordsReplayed(group.Key, Entities.Matter, "resolved", stagedMatters - matterMerge.Failed);
+                metrics.RecordsReplayed(group.Key, Entities.Matter, "failed_again", matterFailed + matterMerge.Failed);
+                metrics.ReplayCompleted(group.Key, status);
                 logger.LogInformation("Replay run {SyncRunId} finished: {Status} ({Failed} still failing)", runId, status, failed);
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // Close the run on shutdown too, or it stays 'Running' for ever (and trips SyncRunStuck).
+                await repository.CompleteRunAsync(runId, "Failed", "Cancelled because the service is stopping.");
+                metrics.ReplayCompleted(group.Key, "Failed");
+                throw;
+            }
+            catch (Exception ex)
             {
                 logger.LogError(ex, "Replay run {SyncRunId} failed", runId);
                 await repository.CompleteRunAsync(runId, "Failed", ex.Message.Length > 4000 ? ex.Message[..4000] : ex.Message);
+                metrics.ReplayCompleted(group.Key, "Failed");
             }
         }
     }
@@ -97,6 +112,29 @@ public sealed class DuplicateDetectionService(
         if (newCount > 0)
             logger.LogInformation("Duplicate detection: {New} new possible duplicate(s) for review ({Total} scored)",
                 newCount, candidates.Count);
+    }
+}
+
+/// <summary>
+/// Reads state that only lives in SQL (open dead letters, reconciliation, stuck runs) every
+/// HealthSnapshotMinutes and hands it to SyncMetrics as gauges. Reconciliation counts core.Client
+/// and core.Matter, so it runs on an interval rather than every cycle.
+/// </summary>
+public sealed class HealthSnapshotService(
+    SyncHubRepository repository, SyncMetrics metrics, IOptions<SyncOptions> options, TimeProvider clock)
+{
+    private DateTimeOffset _last = DateTimeOffset.MinValue;
+
+    public async Task RefreshIfDueAsync(CancellationToken ct)
+    {
+        var interval = TimeSpan.FromMinutes(options.Value.HealthSnapshotMinutes);
+        var now = clock.GetUtcNow();
+        if (now - _last < interval) return;
+
+        var snapshot = await repository.GetHealthSnapshotAsync(now, ct);
+        // Stale after three missed refreshes: the gauges then disappear rather than show old values.
+        metrics.HealthObserved(snapshot, maxAge: interval * 3);
+        _last = now;
     }
 }
 

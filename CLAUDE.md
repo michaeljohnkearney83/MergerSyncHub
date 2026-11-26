@@ -79,7 +79,13 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
   `AddObservability(name, meter)`. Labels stay low-cardinality (source, entity, outcome, error type); keys,
   run ids and correlation ids go in logs. Prometheus names: dots become `_`, counters get `_total`, unit `s`
   adds `_seconds`. If you rename a metric, update `monitoring/alert-rules.yml` and the dashboard JSON.
-- **Logs:** message templates, not interpolation; scopes (Source, CorrelationId) reach Loki as structured metadata.
+- **SQL-backed gauges** (dead letters, reconciliation, stuck runs) come from `ops.usp_GetHealthSnapshot` +
+  `usp_GetReconciliation`, read by `HealthSnapshotService` and held in `SyncMetrics`. Gauge callbacks never query SQL.
+  A snapshot older than 3 intervals is dropped, so the gauges vanish rather than report stale values.
+- **Replays** have their own counters (`synchub.replay.*`); never route them through `RunCompleted`, which would
+  reset `time_since_success` and hide a stopped scheduled sync.
+- **Dashboard:** edit `monitoring/grafana/make_dashboard.py`, then regenerate `dashboards/synchub.json` from it.
+- **Logs:** message templates, not interpolation; never log passwords or tokens; scopes (Source, CorrelationId) reach Loki as structured metadata.
 - **UK English** in UI text and docs. Keep comments that explain trade-offs.
 
 ## Gotchas already hit
