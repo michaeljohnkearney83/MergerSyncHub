@@ -160,7 +160,8 @@ public sealed class SourceSyncService(
         return new EntitySyncResult(entity, sourceTotal, read, staged, merge.Inserted, merge.Updated, failed);
     }
 
-    /// <summary>Bulk-stages the buffered clients and matters and clears the buffers. <returns>Rows staged.</returns></summary>
+    /// <summary>Bulk-stages the buffered clients and matters and clears the buffers.</summary>
+    /// <returns>Rows staged.</returns>
     private async Task<int> FlushAsync(long runId, List<StagedClient> clients, List<StagedMatter> matters, CancellationToken ct)
     {
         var count = await repository.BulkStageClientsAsync(runId, clients, ct)

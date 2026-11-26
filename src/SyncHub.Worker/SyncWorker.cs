@@ -98,9 +98,8 @@ public sealed class SyncWorker(
         }
     }
 
-    /// <summary>
-    /// </summary>
-    /// <c>false</c> (after logging a critical error with the likely fix) if the SyncHub database can't be reached.
+    /// <summary>Checks the SyncHub database is reachable before the first cycle.</summary>
+    /// <returns><c>false</c> (after logging a critical error with the likely fix) if it can't be reached.</returns>
     private async Task<bool> CanReachDatabaseAsync(CancellationToken ct)
     {
         try
