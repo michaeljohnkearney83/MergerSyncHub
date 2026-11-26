@@ -24,3 +24,10 @@ signing-key.pem
 
 # Claude Code personal settings
 .claude/settings.local.json
+
+# Power BI Desktop local files: the data cache and per-machine settings (they hold client data and
+# a machine-encrypted credential signature), and .pbix files (binary copies with data inside).
+# The .pbip project (TMDL text) is what's committed. Kept here at the root so every branch has it.
+*.pbix
+**/.pbi/cache.abf
+**/.pbi/localSettings.json

@@ -23,7 +23,7 @@ public sealed class SyncCycle(
     SyncMetrics metrics,
     ILogger<SyncCycle> logger)
 {
-    /// <summary>Runs every step of one cycle in order: replay, sync each source, duplicate detection, reporting refresh, staging purge, health snapshot.</summary>
+    /// <summary>Runs every step of one cycle in order: replay, sync each source, duplicate detection, reporting refresh, purge of old data (staging and run history), health snapshot.</summary>
     public async Task RunAsync(CancellationToken ct)
     {
         await StepAsync("Replay queued dead letters", () => replay.RunAsync(ct), ct);
@@ -33,7 +33,7 @@ public sealed class SyncCycle(
 
         await StepAsync("Duplicate detection", duplicates.RunAsync, ct);
         await StepAsync("Reporting refresh", housekeeping.RefreshReportingIfDueAsync, ct);
-        await StepAsync("Staging purge", housekeeping.PurgeStagingIfDueAsync, ct);
+        await StepAsync("Purge old data", housekeeping.PurgeOldDataIfDueAsync, ct);
         await StepAsync("Health snapshot", () => health.RefreshIfDueAsync(ct), ct);
     }
 

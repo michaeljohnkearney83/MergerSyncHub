@@ -30,7 +30,7 @@ failures, correct bad records, replay them, review duplicates and fix mappings, 
 | [Key terms](#key-terms) | [Prerequisites](#prerequisites) | [Monitoring](#6-monitoring-optional-prometheus-loki-and-grafana) |
 | [Versions](#versions) | [Create the databases](#1-create-the-databases) | [Git hooks](#5-git-hooks-for-feature-branches-optional) |
 | [Architecture](#architecture) | [Run the tests](#2-run-the-tests) | [Design decisions](#design-decisions-the-why) |
-| [What's in the repo](#whats-in-the-repo) | [Start everything (Docker or by hand)](#3-start-everything) | [Known limitations](#known-limitations-and-what-id-do-next) |
+| [What's in the repo](#whats-in-the-repo) | [Start everything (Docker or by hand)](#3-start-everything) | [Data lifetimes](#data-lifetimes) · [Known limitations](#known-limitations-and-what-id-do-next) |
 | [Full glossary](docs/glossary.md) | [Sign in (demo accounts)](#4-sign-in) | [Interview guide](docs/interview-guide.md) |
 | | [10-minute demo](#a-10-minute-demo) | |
 
@@ -413,6 +413,28 @@ How it fits together:
 | **Duplicate detection suggests; people decide** | Wrongly merging two different clients is far worse than missing a match, especially for conflict checks. |
 | **Raw practice area codes kept; mapped at reporting time** | Fixing a mapping corrects history on the next refresh without re-syncing. |
 | **Star schema for reporting** | Simple DAX, fast visuals, and the same dimensions serve SSRS and Power BI. |
+
+<sub>[↑ Back to top](#merger-sync-hub)</sub>
+
+## Data lifetimes
+
+Everything that grows has a lifetime, except the records a law firm must keep.
+
+| Data | Kept for | How |
+|---|---|---|
+| Staging (`stg.*`), the largest tables | 2 days | Daily purge by run id, in chunks (`Sync:StagingRetentionDays`) |
+| Sync run history (`ops.SyncRun`) | 90 days if successful, 365 days if it failed; runs still `Running` are never purged | Same daily job (`Sync:RunHistorySucceededDays`, `Sync:RunHistoryOtherDays`); about 400,000 runs a year otherwise |
+| Reporting (`rpt.*`) | Rebuilt every 5 minutes | Full reload; `FactDataQualityDaily` keeps its daily history on purpose (2 rows a day) |
+| Calendar (`rpt.DimDate`) | 2010 to two years ahead | Extended on every reporting load, so it never runs out (it used to stop at 2030) |
+| Metrics and logs (Prometheus, Loki) | 7 days | Container settings |
+| Clients and matters (`core.*`), directory audit log | Kept | These are records. A firm keeps matter files for years after closing (often 6-15+, set by its records policy and regulator), archives closed matters to cheaper storage and puts disputed ones on legal hold; GDPR limits how long personal data is kept. That's a policy decision, so nothing deletes them automatically. |
+
+**Transaction log.** The demo databases use the **SIMPLE** recovery model, so the log is reused and stays small.
+Under FULL (SQL Server's default) with no log backups, the hub's log had grown to 584 MB, more than twice its data.
+Production would keep FULL, for point-in-time restore, and schedule log backups instead.
+
+**At larger scale:** partition big tables by month and switch old months out instead of deleting rows (a sliding
+window, with next month's partition created in advance), and use page compression on cold data.
 
 <sub>[↑ Back to top](#merger-sync-hub)</sub>
 

@@ -164,14 +164,26 @@ public sealed class HousekeepingService(
         logger.LogInformation("Reporting star schema refreshed");
     }
 
-    /// <summary>Purges old staging rows at most once a day, keeping <c>Sync:StagingRetentionDays</c> days.</summary>
-    public async Task PurgeStagingIfDueAsync()
+    /// <summary>
+    /// At most once a day: purges staging rows older than <c>Sync:StagingRetentionDays</c>, then old run history
+    /// (<c>Sync:RunHistorySucceededDays</c> / <c>Sync:RunHistoryOtherDays</c>). Staging goes first, and run history
+    /// is always kept at least a day longer, because the staging purge finds its cut-off from ops.SyncRun.
+    /// </summary>
+    public async Task PurgeOldDataIfDueAsync()
     {
         var now = clock.GetUtcNow();
         if (now - _lastPurge < TimeSpan.FromHours(24)) return;
 
-        await repository.PurgeStagingAsync(options.Value.StagingRetentionDays);
+        var settings = options.Value;
+        await repository.PurgeStagingAsync(settings.StagingRetentionDays);
+
+        var keepSucceeded = Math.Max(settings.RunHistorySucceededDays, settings.StagingRetentionDays + 1);
+        var keepOther = Math.Max(settings.RunHistoryOtherDays, keepSucceeded);
+        var runsPurged = await repository.PurgeRunHistoryAsync(keepSucceeded, keepOther);
+
         _lastPurge = now;
-        logger.LogInformation("Purged staging rows older than {Days} days", options.Value.StagingRetentionDays);
+        logger.LogInformation(
+            "Purged staging older than {StagingDays} days and {RunsPurged} sync run(s) past retention ({SucceededDays} days succeeded, {OtherDays} days failed)",
+            settings.StagingRetentionDays, runsPurged, keepSucceeded, keepOther);
     }
 }

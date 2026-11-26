@@ -46,7 +46,7 @@ groups:
 
       - alert: CycleStepFailing
         # Catches failures outside a sync run: replay, duplicate detection, reporting refresh,
-        # staging purge, health snapshot, and SQL being down before a run can even start.
+        # old-data purge, health snapshot, and SQL being down before a run can even start.
         expr: sum by (step) (increase(synchub_cycle_step_failures_total[15m])) >= 3
         for: 5m
         labels:

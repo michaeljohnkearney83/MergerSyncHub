@@ -317,6 +317,19 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
             commandType: CommandType.StoredProcedure, commandTimeout: LongCommandTimeoutSeconds);
     }
 
+    /// <summary>
+    /// Deletes old sync runs and their per-entity rows, in chunks: successful runs after
+    /// <paramref name="keepSucceededDays"/>, failed ones after <paramref name="keepOtherDays"/>. Running runs are kept.
+    /// </summary>
+    /// <returns>How many runs were purged.</returns>
+    public async Task<int> PurgeRunHistoryAsync(int keepSucceededDays, int keepOtherDays)
+    {
+        await using var conn = connections.Create(Db);
+        return await conn.QuerySingleAsync<int>("ops.usp_PurgeRunHistory",
+            new { KeepSucceededDays = keepSucceededDays, KeepOtherDays = keepOtherDays },
+            commandType: CommandType.StoredProcedure, commandTimeout: LongCommandTimeoutSeconds);
+    }
+
     /// <summary>Opens a connection to SyncHub; throws if the database is unreachable or the login fails.</summary>
     public async Task CheckConnectivityAsync(CancellationToken ct)
     {
