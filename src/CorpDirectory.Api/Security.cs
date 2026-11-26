@@ -113,7 +113,8 @@ public sealed class SigningKeyStore
         {
             rsa = RSA.Create(2048);
             File.WriteAllText(path, rsa.ExportRSAPrivateKeyPem());
-            logger.LogInformation("Created a new token signing key at {Path}", path);
+            // Warning: a new key invalidates every token issued so far, so all users must sign in again.
+            logger.LogWarning("Created a new token signing key at {Path}; previously issued tokens are no longer valid", path);
         }
 
         var publicKey = rsa.ExportParameters(false);

@@ -20,6 +20,24 @@ public sealed class MergeResult
     public int Failed { get; set; }
 }
 
+public sealed record OpenDeadLetterStat(string Source, string Entity, string ErrorType, int OpenCount, int OldestAgeSeconds);
+public sealed record StuckRunStat(string Source, string RunType, int StuckRuns);
+/// <summary>A class, not a positional record: usp_GetReconciliation returns more columns than we need,
+/// and Dapper only maps to a record constructor when the column list matches it exactly.</summary>
+public sealed class ReconciliationStat
+{
+    public string Source { get; init; } = "";
+    public string Entity { get; init; } = "";
+    public int Unexplained { get; init; }
+}
+
+/// <summary>State that only lives in SQL, read periodically and published as gauges.</summary>
+public sealed record HealthSnapshot(
+    IReadOnlyList<OpenDeadLetterStat> DeadLetters,
+    IReadOnlyList<StuckRunStat> StuckRuns,
+    IReadOnlyList<ReconciliationStat> Reconciliation,
+    DateTimeOffset TakenAt);
+
 public sealed record ReplayItem(long DeadLetterId, string Source, string Entity, string SourceKey, string Payload);
 
 public sealed record EntitySyncResult(
@@ -190,6 +208,28 @@ public sealed class SyncHubRepository(SqlConnectionFactory connections)
         await using var conn = connections.Create(Db);
         return await conn.QuerySingleAsync<MergeResult>(proc, new { SyncRunId = syncRunId, IsReplay = isReplay },
             commandType: CommandType.StoredProcedure, commandTimeout: LongCommandTimeoutSeconds);
+    }
+
+    /* ---------------- Health snapshot (monitoring) ---------------- */
+
+    public async Task<HealthSnapshot> GetHealthSnapshotAsync(DateTimeOffset takenAt, CancellationToken ct)
+    {
+        await using var conn = connections.Create(Db);
+        IReadOnlyList<OpenDeadLetterStat> deadLetters;
+        IReadOnlyList<StuckRunStat> stuck;
+        await using (var grid = await conn.QueryMultipleAsync(new CommandDefinition(
+                         "ops.usp_GetHealthSnapshot", commandType: CommandType.StoredProcedure, cancellationToken: ct)))
+        {
+            deadLetters = (await grid.ReadAsync<OpenDeadLetterStat>()).AsList();
+            stuck = (await grid.ReadAsync<StuckRunStat>()).AsList();
+        }
+
+        // Reuse the reconciliation the dashboard shows, so the alert and the screen always agree.
+        var reconciliation = (await conn.QueryAsync<ReconciliationStat>(new CommandDefinition(
+            "ops.usp_GetReconciliation", commandType: CommandType.StoredProcedure,
+            commandTimeout: LongCommandTimeoutSeconds, cancellationToken: ct))).AsList();
+
+        return new HealthSnapshot(deadLetters, stuck, reconciliation, takenAt);
     }
 
     /* ---------------- Duplicates, reporting, housekeeping ---------------- */

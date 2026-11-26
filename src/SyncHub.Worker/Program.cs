@@ -41,6 +41,7 @@ builder.Services.AddSingleton<SourceSyncService>();
 builder.Services.AddSingleton<ReplayService>();
 builder.Services.AddSingleton<DuplicateDetectionService>();
 builder.Services.AddSingleton<HousekeepingService>();
+builder.Services.AddSingleton<HealthSnapshotService>();
 builder.Services.AddScoped<SyncCycle>();
 
 // Source connectors

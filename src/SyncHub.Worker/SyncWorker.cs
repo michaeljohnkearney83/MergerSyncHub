@@ -19,6 +19,7 @@ public sealed class SyncCycle(
     ReplayService replay,
     DuplicateDetectionService duplicates,
     HousekeepingService housekeeping,
+    HealthSnapshotService health,
     SyncMetrics metrics,
     ILogger<SyncCycle> logger)
 {
@@ -32,6 +33,7 @@ public sealed class SyncCycle(
         await StepAsync("Duplicate detection", duplicates.RunAsync, ct);
         await StepAsync("Reporting refresh", housekeeping.RefreshReportingIfDueAsync, ct);
         await StepAsync("Staging purge", housekeeping.PurgeStagingIfDueAsync, ct);
+        await StepAsync("Health snapshot", () => health.RefreshIfDueAsync(ct), ct);
     }
 
     private async Task StepAsync(string name, Func<Task> step, CancellationToken ct)
@@ -58,10 +60,12 @@ public sealed class SyncWorker(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!await CanReachDatabaseAsync(stoppingToken)) return;
-
+        // Before the database check, so time_since_success grows from start-up even if the worker
+        // gives up below: SyncStale then fires instead of the series silently never existing.
         foreach (var source in (string[])[SourceSystems.FirmA, SourceSystems.FirmB])
             metrics.TrackSource(source);
+
+        if (!await CanReachDatabaseAsync(stoppingToken)) return;
 
         var interval = TimeSpan.FromSeconds(options.Value.IntervalSeconds);
         logger.LogInformation("SyncHub worker started; running every {Interval}", interval);
