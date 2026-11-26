@@ -1,2 +1,4 @@
 # Git hooks run under bash; CRLF line endings would break them on Windows checkouts.
 .githooks/* text eol=lf
+# Shell scripts run inside Linux containers; CRLF would break them.
+docker/*.sh text eol=lf

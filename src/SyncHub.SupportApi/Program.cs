@@ -24,6 +24,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(o =>
     {
         o.Authority = builder.Configuration["Auth:Authority"] ?? "http://localhost:5090";
+        // Optional: where to fetch the discovery document when the authority's public address isn't
+        // reachable from here (inside Docker). The token's issuer is still checked against the
+        // discovery document's "issuer", which stays the public address.
+        if (builder.Configuration["Auth:MetadataAddress"] is { Length: > 0 } metadataAddress)
+            o.MetadataAddress = metadataAddress;
         o.Audience = builder.Configuration["Auth:Audience"] ?? "api://synchub";
         o.RequireHttpsMetadata = false;   // local demo only
         o.RefreshInterval = TimeSpan.FromSeconds(30);   // retry key download soon if the directory wasn't up yet

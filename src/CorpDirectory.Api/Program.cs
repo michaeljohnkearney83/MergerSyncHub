@@ -51,14 +51,19 @@ await Seeder.SeedAsync(app.Services);
 /* ===========================================================================
    Discovery: lets other APIs find and trust our signing keys (OpenID Connect style)
 =========================================================================== */
-app.MapGet("/.well-known/openid-configuration", (IOptions<DirectoryOptions> o) =>
+app.MapGet("/.well-known/openid-configuration", (IOptions<DirectoryOptions> o, HttpRequest request) =>
 {
+    // The issuer is fixed: it's the name tokens are issued under, whoever is asking.
+    // The endpoint URLs follow the address the caller actually used, so an API reaching us by
+    // another name (http://directory:8080 inside Docker) is sent to keys it can download,
+    // instead of to http://localhost:5090, which inside its container is itself.
     var issuer = o.Value.Issuer;
+    var baseUrl = $"{request.Scheme}://{request.Host}{request.PathBase}";
     return Results.Json(new Dictionary<string, object>
     {
         ["issuer"] = issuer,
-        ["jwks_uri"] = $"{issuer}/.well-known/jwks.json",
-        ["token_endpoint"] = $"{issuer}/api/auth/token",
+        ["jwks_uri"] = $"{baseUrl}/.well-known/jwks.json",
+        ["token_endpoint"] = $"{baseUrl}/api/auth/token",
         ["id_token_signing_alg_values_supported"] = new[] { "RS256" },
         ["response_types_supported"] = new[] { "token" },
         ["subject_types_supported"] = new[] { "public" },

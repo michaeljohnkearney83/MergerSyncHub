@@ -1,0 +1,15 @@
+# Keep build contexts small and never send secrets or build output to the Docker daemon.
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.env
+**/.env.local
+**/signing-key.pem
+**/.vs/
+**/.vscode/
+.git/
+.claude/
+monitoring/
+docs/
+reports/

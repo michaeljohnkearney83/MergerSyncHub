@@ -80,6 +80,7 @@ flowchart LR
 | `dashboard/` | React + TypeScript (Vite) support dashboard |
 | `reports/ssrs/` | Step-by-step build of the SSRS exceptions report |
 | `reports/powerbi/` | Power BI model, DAX measures and row-level security guide |
+| `docker/` | Shared Dockerfiles for the .NET services and React apps, nginx config, and the one-off database setup script |
 | `monitoring/` | OpenTelemetry Collector, Prometheus (with alert rules), Loki and Grafana (provisioned dashboard) config |
 | `docs/interview-guide.md` | How this project maps to the interview questions |
 | `.claude/agents/sql-reviewer.md` | Claude Code subagent that reviews the SQL scripts and repository queries (ask Claude to "use the sql-reviewer agent") |
@@ -136,7 +137,29 @@ cd src
 dotnet test
 ```
 
-### 3. Start everything (six terminals)
+### 3. Start everything
+
+**Option A: all in Docker (one command).** Needs only Docker and a `.env` file (copy `.env.example`):
+
+```powershell
+docker compose --profile app --profile monitoring up -d --build
+```
+
+- Builds and starts the four .NET services and both React apps on the same ports as below, plus SQL Server
+  and the monitoring stack. The first build takes a few minutes; later ones reuse cached layers.
+- A one-off `db-init` container runs the database scripts the first time only (when the databases don't
+  exist yet), so restarting the stack never wipes your data.
+- The directory's token signing key lives on a Docker volume, so restarts don't sign everyone out.
+- After changing code, rebuild just what changed, e.g. `docker compose --profile app up -d --build worker`.
+- Stop with `docker compose --profile app --profile monitoring down` (add `-v` only if you want to delete the data).
+
+Inside Docker the Support API reaches the directory as `http://directory:8080`, but tokens are issued as
+`http://localhost:5090` (the address the browser uses). So the Support API is given both: `Auth:Authority` (the
+issuer it trusts) and `Auth:MetadataAddress` (where it can actually download the keys). The directory's discovery
+document builds its key URL from the address it was called on, so that works whichever name is used.
+
+**Option B: run each project yourself (best for development).** Faster to edit and re-run. Stop the
+containers first if they're running, because they use the same ports. Six terminals:
 
 Start the directory first: the Support API downloads its signing keys from it.
 
