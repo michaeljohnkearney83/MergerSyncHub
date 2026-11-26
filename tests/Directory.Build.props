@@ -1,0 +1,4 @@
+<Project>
+  <!-- The tests share the main build settings (target framework, nullable, XML docs) with src/. -->
+  <Import Project="..\src\Directory.Build.props" />
+</Project>
