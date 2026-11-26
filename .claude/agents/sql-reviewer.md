@@ -14,8 +14,8 @@ teach the "why".
 If the caller names files or a change, review those. Otherwise review everything SQL-shaped:
 
 - `database/01_*.sql` to `database/06_*.sql`, `database/perf/`, `database/demo/`
-- SQL strings in C#: `src/SyncHub.Worker/Data/SyncHubRepository.cs`, `src/SyncHub.Worker/Sources/Connectors.cs`,
-  `src/SyncHub.SupportApi/SupportRepository.cs`, `src/CorpDirectory.Api/DirectoryRepository.cs`
+- SQL strings in C#: `src/Services/SyncHub.Worker/Data/SyncHubRepository.cs`, `src/Services/SyncHub.Worker/Sources/Connectors.cs`,
+  `src/Services/SyncHub.SupportApi/SupportRepository.cs`, `src/Mocks/CorpDirectory.Api/DirectoryRepository.cs`
   (find others with `Grep` for `QueryAsync|ExecuteAsync|CommandType.StoredProcedure`)
 
 Use `Bash` only for read-only commands (for example `git diff`, `git status`, `ls`). **Never run

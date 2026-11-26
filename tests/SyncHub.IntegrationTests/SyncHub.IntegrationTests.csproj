@@ -18,8 +18,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\SyncHub.SupportApi\SyncHub.SupportApi.csproj" />
-    <ProjectReference Include="..\..\src\SyncHub.Worker\SyncHub.Worker.csproj" />
+    <ProjectReference Include="..\..\src\Services\SyncHub.SupportApi\SyncHub.SupportApi.csproj" />
+    <ProjectReference Include="..\..\src\Services\SyncHub.Worker\SyncHub.Worker.csproj" />
   </ItemGroup>
 
   <ItemGroup>

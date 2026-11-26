@@ -2,6 +2,6 @@
        Generates deterministic data with deliberate faults: outages, slow responses and bad records. -->
 
   <ItemGroup>
-    <ProjectReference Include="..\SyncHub.Observability\SyncHub.Observability.csproj" />
+    <ProjectReference Include="..\..\Libraries\SyncHub.Observability\SyncHub.Observability.csproj" />
   </ItemGroup>
 </Project>

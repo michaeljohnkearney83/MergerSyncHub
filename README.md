@@ -120,22 +120,28 @@ flowchart LR
 
 ## What's in the repo
 
-In Visual Studio or Rider, `src/MergerSyncHub.sln` groups the projects into **Libraries** (Core, Observability),
-**Services** (the worker and the Support API: the real system), **Mocks** (the corporate directory and Firm B's API,
-which stand in for Entra ID and the other firm's real system) and **Tests**. On disk, tests live in `tests/`.
+The .NET projects are grouped by role, both on disk and in `src/MergerSyncHub.sln`:
+
+```
+src/
+├── Libraries/   SyncHub.Core, SyncHub.Observability       shared code, no hosting
+├── Services/    SyncHub.Worker, SyncHub.SupportApi        the real system
+└── Mocks/       CorpDirectory.Api, FirmB.MockApi          stand-ins for Entra ID and the other firm's system
+tests/           SyncHub.Tests, SyncHub.IntegrationTests
+```
 
 | Path | What it is |
 |---|---|
 | `database/` | SQL scripts: both databases, schemas, stored procedures, reporting layer, plus `setup.ps1` |
 | `database/perf/` | Before-and-after indexing demo on the legacy extract query |
 | `database/demo/` | Script that simulates users editing records in Firm A |
-| `src/SyncHub.Core` | Pure logic: models, mappers, validation, name normalisation, duplicate matching |
-| `src/SyncHub.Worker` | The integration engine (.NET 10 worker service) |
-| `src/SyncHub.SupportApi` | Minimal API behind the dashboard |
-| `src/FirmB.MockApi` | The "other firm's" API, with random outages, slow responses and bad records |
-| `src/CorpDirectory.Api` | Mock corporate directory (stands in for Active Directory / Entra ID): sign-in, roles, joiners and leavers |
+| `src/Libraries/SyncHub.Core` | Pure logic: models, mappers, validation, name normalisation, duplicate matching |
+| `src/Services/SyncHub.Worker` | The integration engine (.NET 10 worker service) |
+| `src/Services/SyncHub.SupportApi` | Minimal API behind the dashboard |
+| `src/Mocks/FirmB.MockApi` | The "other firm's" API, with random outages, slow responses and bad records |
+| `src/Mocks/CorpDirectory.Api` | Mock corporate directory (stands in for Active Directory / Entra ID): sign-in, roles, joiners and leavers |
 | `directory-admin/` | React admin centre for the directory: add new starters, manage access, disable leavers, audit log |
-| `src/SyncHub.Observability` | Shared OpenTelemetry set-up: every service sends metrics and logs to the collector |
+| `src/Libraries/SyncHub.Observability` | Shared OpenTelemetry set-up: every service sends metrics and logs to the collector |
 | `tests/SyncHub.Tests` | xUnit unit tests for mapping, validation, time zones and matching |
 | `tests/SyncHub.IntegrationTests` | Security and database tests against the real API and stored procedures (needs Docker) |
 | `dashboard/` | React + TypeScript (Vite) support dashboard |
@@ -228,12 +234,12 @@ docker compose --profile app --profile monitoring up -d --build
 
 | Docker service | Project | Port |
 |---|---|---|
-| `directory-api` | `src/CorpDirectory.Api` (mock corporate directory) | 5090 |
+| `directory-api` | `src/Mocks/CorpDirectory.Api` (mock corporate directory) | 5090 |
 | `directory-web` | `directory-admin/` (directory admin centre) | 5174 |
-| `support-api` | `src/SyncHub.SupportApi` | 5081 |
+| `support-api` | `src/Services/SyncHub.SupportApi` | 5081 |
 | `support-web` | `dashboard/` (support dashboard) | 5173 |
-| `firmb-api` | `src/FirmB.MockApi` | 5070 |
-| `sync-worker` | `src/SyncHub.Worker` | (none) |
+| `firmb-api` | `src/Mocks/FirmB.MockApi` | 5070 |
+| `sync-worker` | `src/Services/SyncHub.Worker` | (none) |
 | `db-init` | `database/` scripts, runs once and exits | (none) |
 
 Names follow `<area>-<kind>` so each API sits next to its web front end; containers are `synchub-<service>`.
@@ -249,10 +255,10 @@ containers first if they're running, because they use the same ports. Six termin
 Start the directory first: the Support API downloads its signing keys from it.
 
 ```powershell
-dotnet run --project src/CorpDirectory.Api    # http://localhost:5090  (seeds demo accounts on first run)
-dotnet run --project src/FirmB.MockApi        # http://localhost:5070
-dotnet run --project src/SyncHub.Worker       # starts syncing immediately
-dotnet run --project src/SyncHub.SupportApi   # http://localhost:5081/swagger
+dotnet run --project src/Mocks/CorpDirectory.Api       # http://localhost:5090  (seeds demo accounts on first run)
+dotnet run --project src/Mocks/FirmB.MockApi           # http://localhost:5070
+dotnet run --project src/Services/SyncHub.Worker       # starts syncing immediately
+dotnet run --project src/Services/SyncHub.SupportApi   # http://localhost:5081/swagger
 cd dashboard; npm install; npm run dev        # http://localhost:5173  (SyncHub dashboard)
 cd directory-admin; npm install; npm run dev  # http://localhost:5174  (Directory admin centre)
 ```
@@ -327,7 +333,7 @@ How it fits together:
                                                   +--> Loki (logs) ----------+
 ```
 
-- Every service calls `builder.AddObservability(...)` from `src/SyncHub.Observability`. It collects the
+- Every service calls `builder.AddObservability(...)` from `src/Libraries/SyncHub.Observability`. It collects the
   platform's built-in meters (HTTP server and client, runtime, Polly) and the worker's business metrics
   (`SyncMetrics`: records read, merged and rejected, run outcomes and durations, time since last success).
 - The worker also reads state that only lives in SQL every 2 minutes (`Sync:HealthSnapshotMinutes`) and

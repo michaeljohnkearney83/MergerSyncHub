@@ -11,7 +11,7 @@
         .\set-local-secrets.ps1 -Server "localhost\SQLEXPRESS" -User myuser -Password 'secret'
 
     Check what's stored:
-        dotnet user-secrets list --project src/SyncHub.Worker
+        dotnet user-secrets list --project src/Services/SyncHub.Worker
 #>
 param(
     [string]$Server = "localhost,14333",
@@ -26,10 +26,10 @@ function Conn([string]$database, [string]$app, [string]$extra = "") {
 }
 
 $secrets = @(
-    @{ Project = "src/SyncHub.Worker";     Key = "ConnectionStrings:SyncHub";   Value = (Conn "SyncHub" "SyncHub.Worker") },
-    @{ Project = "src/SyncHub.Worker";     Key = "ConnectionStrings:FirmA";     Value = (Conn "FirmA_Legacy" "SyncHub.Worker" ";ApplicationIntent=ReadOnly") },
-    @{ Project = "src/SyncHub.SupportApi"; Key = "ConnectionStrings:SyncHub";   Value = (Conn "SyncHub" "SyncHub.SupportApi") },
-    @{ Project = "src/CorpDirectory.Api";  Key = "ConnectionStrings:Directory"; Value = (Conn "CorpDirectory" "CorpDirectory.Api") }
+    @{ Project = "src/Services/SyncHub.Worker";     Key = "ConnectionStrings:SyncHub";   Value = (Conn "SyncHub" "SyncHub.Worker") },
+    @{ Project = "src/Services/SyncHub.Worker";     Key = "ConnectionStrings:FirmA";     Value = (Conn "FirmA_Legacy" "SyncHub.Worker" ";ApplicationIntent=ReadOnly") },
+    @{ Project = "src/Services/SyncHub.SupportApi"; Key = "ConnectionStrings:SyncHub";   Value = (Conn "SyncHub" "SyncHub.SupportApi") },
+    @{ Project = "src/Mocks/CorpDirectory.Api";  Key = "ConnectionStrings:Directory"; Value = (Conn "CorpDirectory" "CorpDirectory.Api") }
 )
 
 foreach ($s in $secrets) {

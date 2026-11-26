@@ -85,7 +85,7 @@ services:
     build:
       context: .
       dockerfile: docker/dotnet.Dockerfile
-      args: { PROJECT: CorpDirectory.Api }
+      args: { GROUP: Mocks, PROJECT: CorpDirectory.Api }
     image: synchub/corp-directory
     container_name: synchub-directory-api
     environment:
@@ -104,7 +104,7 @@ services:
     build:
       context: .
       dockerfile: docker/dotnet.Dockerfile
-      args: { PROJECT: FirmB.MockApi }
+      args: { GROUP: Mocks, PROJECT: FirmB.MockApi }
     image: synchub/firmb-mock
     container_name: synchub-firmb-api
     depends_on: {}
@@ -119,6 +119,7 @@ services:
       context: .
       dockerfile: docker/dotnet.Dockerfile
       args:
+        GROUP: Services
         PROJECT: SyncHub.Worker
         RUNTIME_IMAGE: mcr.microsoft.com/dotnet/runtime:10.0
     image: synchub/worker
@@ -139,7 +140,7 @@ services:
     build:
       context: .
       dockerfile: docker/dotnet.Dockerfile
-      args: { PROJECT: SyncHub.SupportApi }
+      args: { GROUP: Services, PROJECT: SyncHub.SupportApi }
     image: synchub/support-api
     container_name: synchub-support-api
     depends_on:
