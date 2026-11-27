@@ -7,10 +7,31 @@ Templates for running Merger Sync Hub in Azure. The design and its reasoning are
 |---|---|
 | `main.bicep` | Subscription scope: the resource group `rg-synchub`, then everything in it via `resources.bicep` |
 | `resources.bicep` | Log Analytics + Application Insights, three managed identities, Container Registry, Key Vault, Azure SQL (Entra-only, serverless free offer) with three databases, Container Apps environment and six apps, a monthly budget |
+| `entra-setup.ps1` | Microsoft Entra ID (tenant level, free, no subscription needed): API and dashboard app registrations, four app roles, four groups, role assignments |
 | `main.bicepparam` | Parameters. The SQL admin comes from environment variables, so no personal id is committed |
 
 Nothing here stores a password: Azure SQL accepts Entra sign-in only, the apps use managed identities, the registry has no
 admin user, and the Firm B API key and token signing key live in Key Vault.
+
+## Entra ID: replacing the mock directory (free)
+
+The mock directory imitates Entra: groups grant app roles, and the token carries them. `entra-setup.ps1` sets up the real thing:
+
+| Creates | Detail |
+|---|---|
+| App registration **SyncHub Support API** | Exposes `api://<appId>/access_as_user` and four app roles (`SyncHub.Viewer`, `.Support`, `.DataSteward`, `.Admin`); v2 tokens; its enterprise app **requires assignment**, so no role means no token |
+| App registration **SyncHub Support Dashboard** | Single-page app (MSAL) with redirect URIs; admin consent to call the API |
+| Groups | `SyncHub Viewers`, `SyncHub Support Analysts`, `SyncHub Data Stewards`, `SyncHub Admins` |
+| Assignments | Groups to roles with `-AssignGroups` (**needs Entra ID P1**); otherwise just you, as Admin (works on the free tier) |
+
+```powershell
+az login --allow-no-subscriptions          # tenant-level sign-in; works without an enabled subscription
+.\infra\entra-setup.ps1 -DryRun            # looks everything up, changes nothing
+.\infra\entra-setup.ps1                    # creates or updates; safe to re-run
+```
+
+It prints the settings the apps need (`Auth:Authority`, `Auth:Audience`, the dashboard's client id and scope). Using them
+means switching the Support API to Entra (Authority and Audience settings, no code change) and adding MSAL to the dashboard.
 
 ## Preview (free, creates nothing)
 

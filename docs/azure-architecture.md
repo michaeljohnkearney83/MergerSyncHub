@@ -84,7 +84,8 @@ Everything that runs in Docker today becomes a **Container App**. The images don
 - **Azure SQL uses Entra authentication only** (SQL logins disabled). The demo's `sa` and `synchub_reporting` logins are
   replaced by Entra identities: the worker's and APIs' managed identities, and an Entra group for Power BI report authors.
 - **Least privilege maps across directly:** the reporting role's `SELECT ON SCHEMA::rpt` grant becomes a grant to an Entra group.
-- **People sign in with Entra ID** in production (MSAL in the React apps, Conditional Access and MFA from the firm's policies).
+- **People sign in with Entra ID** in production (MSAL in the React apps, Conditional Access and MFA from the firm's policies);
+  [`infra/entra-setup.ps1`](../infra/entra-setup.ps1) creates the app registrations, roles and groups.
   App roles (`SyncHub.Support`, `SyncHub.DataSteward`...) are defined on the app registration and assigned to security
   groups, exactly as the mock directory models it.
 
