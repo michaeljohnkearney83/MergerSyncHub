@@ -3,6 +3,7 @@
   <!-- Shared OpenTelemetry set-up, so every service reports metrics and logs the same way. -->
 
   <ItemGroup>
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.10.0" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.21.0" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.21.0" />
   </ItemGroup>

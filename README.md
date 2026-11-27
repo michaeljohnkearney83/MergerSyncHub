@@ -31,7 +31,7 @@ failures, correct bad records, replay them, review duplicates and fix mappings, 
 | [Versions](#versions) | [Create the databases](#1-create-the-databases) | [Git hooks](#5-git-hooks-for-feature-branches-optional) |
 | [Architecture](#architecture) | [Run the tests](#2-run-the-tests) | [Design decisions](#design-decisions-the-why) |
 | [What's in the repo](#whats-in-the-repo) | [Start everything (Docker or by hand)](#3-start-everything) | [Data lifetimes](#data-lifetimes) · [Known limitations](#known-limitations-and-what-id-do-next) |
-| [Full glossary](docs/glossary.md) | [Sign in (demo accounts)](#4-sign-in) | [Interview guide](docs/interview-guide.md) |
+| [Full glossary](docs/glossary.md) · [Azure design](docs/azure-architecture.md) | [Sign in (demo accounts)](#4-sign-in) | [Interview guide](docs/interview-guide.md) |
 | | [10-minute demo](#a-10-minute-demo) | |
 
 ### Key terms
@@ -60,6 +60,7 @@ More terms (watermark, look-back, staging, idempotent, orphan matter, roles...) 
 | Front end | React / TypeScript / Vite | 18.3 / 5.6 / 5.4 |
 | Telemetry (services) | OpenTelemetry .NET SDK, OTLP exporter | 1.21.0 |
 | Telemetry (browser) | Grafana Faro Web SDK | 2.15 |
+| Azure | Bicep (infrastructure as code) / Azure Monitor OpenTelemetry Exporter | 0.48 / 1.10.0 |
 | Monitoring | OpenTelemetry Collector (contrib) / Prometheus / Loki / Grafana / Alloy | 0.130.0 / 3.5.0 / 3.5.0 / 12.1.0 / 1.22.0 |
 | Tests | xUnit / Testcontainers.MsSql / Mvc.Testing | 2.9 / 4.17.0 / 10.0.15 |
 | Containers | Build images: .NET SDK 10.0, Node 22 (alpine); runtime: ASP.NET Core 10.0, nginx 1.27 | |
@@ -147,6 +148,7 @@ tests/           SyncHub.Tests, SyncHub.IntegrationTests
 | `dashboard/` | React + TypeScript (Vite) support dashboard |
 | `reports/ssrs/` | Step-by-step build of the SSRS exceptions report |
 | `reports/powerbi/` | Power BI project (`MergerSyncHub.pbip`): star schema model, 17 measures and row-level security, stored as text (TMDL) |
+| `infra/` | Bicep templates for Azure: Container Apps, Azure SQL (Entra-only), Key Vault, Container Registry, Application Insights, budget ([design](docs/azure-architecture.md)) |
 | `docker/` | Shared Dockerfiles for the .NET services and React apps, nginx config, and the one-off database setup script |
 | `monitoring/` | OpenTelemetry Collector, Prometheus (with alert rules), Loki and Grafana (provisioned dashboard) config |
 | `docs/interview-guide.md` | How this project maps to the interview questions |

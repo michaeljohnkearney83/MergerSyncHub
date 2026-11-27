@@ -29,6 +29,7 @@ keep the "why" comments.
 | `directory-admin/` | React + TS (Vite) directory admin centre, port 5174 |
 | `reports/powerbi/` | Power BI project `MergerSyncHub.pbip`: model as TMDL (`MergerSyncHub.SemanticModel/definition/`), 17 measures, `FirmAccess` RLS |
 | `reports/ssrs/` | SSRS build guide (exceptions and sync-run reports) |
+| `infra/` | Bicep (subscription scope): `main.bicep` → `resources.bicep`; design in `docs/azure-architecture.md`; steps in `infra/README.md` |
 | `docker/` | `dotnet.Dockerfile` (all four services, `PROJECT` build arg), `web.Dockerfile` (both React apps), `nginx.conf`, `db-init.sh` |
 | `monitoring/` | Collector, Prometheus (+ `alert-rules.yml`), Loki, Alloy (`alloy.alloy`, Faro receiver), Grafana provisioning and `dashboards/synchub.json` |
 | `docs/interview-guide.md` | Maps the project to interview questions; STAR answers |
@@ -133,6 +134,18 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
   production would use FULL with log backups. `rpt.DimDate` is rolling (`rpt.usp_ExtendDimDate`, called by every load):
   don't reintroduce a fixed end date.
 - **UK English** in UI text and docs. Keep comments that explain trade-offs.
+
+## Azure
+
+- Region UK South, one resource group `rg-synchub` (delete it to remove everything). Bicep is at **subscription scope**
+  so `what-if` previews without creating even the resource group. Compile with `az bicep build --file infra/main.bicep`.
+- **No passwords in Azure:** Entra-only Azure SQL with contained users for three managed identities; registry without
+  an admin user; Firm B key and token signing key in Key Vault. Don't add SQL logins or connection-string secrets.
+- Telemetry: `AddObservability()` exports to OTLP and/or Application Insights depending on which setting is present
+  (`OpenTelemetry:OtlpEndpoint`, `APPLICATIONINSIGHTS_CONNECTION_STRING`).
+- **Never deploy (anything that costs money) without the owner's explicit go-ahead and a cost estimate.** The owner's
+  only subscription was disabled on 27 Nov 2026, so Azure validation is pending.
+- Azure SQL rejects `CREATE/ALTER DATABASE` and `USE` in scripts: run each script against its own database.
 
 ## Reporting
 
