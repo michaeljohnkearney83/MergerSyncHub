@@ -146,9 +146,11 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
 - **Never deploy (anything that costs money) without the owner's explicit go-ahead and a cost estimate.** The owner's
   only subscription was disabled on 27 Nov 2026, so Azure validation is pending.
 - Azure SQL rejects `CREATE/ALTER DATABASE` and `USE` in scripts: run each script against its own database.
-- `infra/entra-setup.ps1` (Graph via `az rest`, idempotent, `-DryRun`) creates the Entra app registrations, roles, groups
-  and assignments. Group-to-role assignment needs Entra ID P1. Creating Entra objects changes the owner's tenant: run it
-  only with their go-ahead. Create SQL users for managed identities `WITH OBJECT_ID` so the SQL server needs no directory rights.
+- `infra/entra-setup.ps1` (Graph via `az rest`, idempotent, `-DryRun`, read-only `-Verify` that exits 1 on failure) creates
+  the Entra app registrations, roles, groups and assignments; `-AllowAzureCli` pre-authorises the Azure CLI so `-Verify` can
+  check a real token's `aud`/`iss`/`roles`. Group-to-role assignment needs Entra ID P1. Creating Entra objects changes the
+  owner's tenant: run it only with their go-ahead (`-DryRun` and `-Verify` are safe). Keep it in PowerShell: Bicep's Graph
+  extension has no what-if or deployment stacks. Its output shows the tenant id and UPN: filter those out of anything shown in chat. Create SQL users for managed identities `WITH OBJECT_ID` so the SQL server needs no directory rights.
 
 ## Reporting
 

@@ -23,12 +23,20 @@ The mock directory imitates Entra: groups grant app roles, and the token carries
 | App registration **SyncHub Support Dashboard** | Single-page app (MSAL) with redirect URIs; admin consent to call the API |
 | Groups | `SyncHub Viewers`, `SyncHub Support Analysts`, `SyncHub Data Stewards`, `SyncHub Admins` |
 | Assignments | Groups to roles with `-AssignGroups` (**needs Entra ID P1**); otherwise just you, as Admin (works on the free tier) |
+| Azure CLI pre-authorisation | Only with `-AllowAzureCli`: lets `az account get-access-token` get a test token for the API without a browser sign-in. Assignment is still required. Running without the switch removes it, so leave it off in production |
 
 ```powershell
-az login --allow-no-subscriptions          # tenant-level sign-in; works without an enabled subscription
-.\infra\entra-setup.ps1 -DryRun            # looks everything up, changes nothing
-.\infra\entra-setup.ps1                    # creates or updates; safe to re-run
+az login --allow-no-subscriptions                      # tenant-level sign-in; works without an enabled subscription
+.\infra\entra-setup.ps1 -DryRun -AllowAzureCli         # looks everything up, changes nothing, prints the writes it would send
+.\infra\entra-setup.ps1 -AllowAzureCli                 # creates or updates; safe to re-run (a second run creates nothing)
+.\infra\entra-setup.ps1 -Verify -AllowAzureCli         # read-only: checks every object and setting, then gets a real token
 ```
+
+`-Verify` reads everything back and checks it against what the script sets up: role ids and values, the scope, assignment
+required, redirect URIs, admin consent, groups and assignments. With `-AllowAzureCli` it also gets an access token and checks
+(decoded locally, never printed) that its `aud`, `iss` and `roles` are what the Support API expects. It exits 1 if anything
+fails. Entra takes a minute or so to replicate, so a `-Verify` straight after creating objects can fail: run it again.
+Pass the same switches (`-AssignGroups`, `-SupportWebUrl`) as the setup run.
 
 It prints the settings the apps need (`Auth:Authority`, `Auth:Audience`, the dashboard's client id and scope). Using them
 means switching the Support API to Entra (Authority and Audience settings, no code change) and adding MSAL to the dashboard.
