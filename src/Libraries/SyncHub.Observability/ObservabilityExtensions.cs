@@ -61,7 +61,7 @@ public static class ObservabilityExtensions
 
         void ConfigureOtlp(OtlpExporterOptions o)
         {
-            o.Endpoint = new Uri(endpoint!);
+            o.Endpoint = new Uri(endpoint!);   // non-null: only called when useOtlp, i.e. endpoint is set
             o.Protocol = OtlpExportProtocol.Grpc;
             o.TimeoutMilliseconds = 5000;
         }
