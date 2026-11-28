@@ -4,7 +4,7 @@ import type {
 import { currentToken, notifyUnauthorized } from './auth'
 import { reportApiError, reportApiUnreachable } from './telemetry'
 
-const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:5080'
+const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:5081'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = currentToken()

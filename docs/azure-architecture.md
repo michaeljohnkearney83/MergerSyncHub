@@ -130,8 +130,10 @@ The schema and procedures move as they are. Only the setup differs:
    built with the apps' Azure URLs as build arguments, because Vite bakes URLs in at build time.
 3. **Database**: run the schema scripts against each database (skipping the `CREATE`/`ALTER DATABASE` and `USE` lines) and create
    the contained users for the managed identities, signed in as the Entra admin. See [`infra/README.md`](../infra/README.md).
-4. **CI/CD** (next step): GitHub Actions signs in to Azure with OIDC federation (no secret stored), builds the images,
-   runs `az deployment group create`, and runs the tests.
+4. **CI/CD**: CI is in place ([`.github/workflows/ci.yml`](../.github/workflows/ci.yml): build, unit and integration tests,
+   React builds, Bicep and PowerShell lint; no Azure access). The next step is a deployment workflow: GitHub Actions signs
+   in to Azure with OIDC federation (no secret stored), runs `what-if` for review, waits for an approval (a GitHub
+   environment), builds the images with `az acr build`, then runs `az deployment sub create`.
 
 `az deployment group what-if` shows exactly what will change before anything is created.
 

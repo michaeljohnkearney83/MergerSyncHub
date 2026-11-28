@@ -8,6 +8,10 @@
     Docker (see docker-compose.yml):
         .\setup.ps1 -Server "localhost,14333" -User sa -Password '<your sa password>'
 #>
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', 'Password',
+    Justification = 'Local Docker sa password, passed straight to sqlcmd -P, which only takes plain text.')]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', 'ReportingPassword',
+    Justification = 'Passed to sqlcmd as a -v variable (plain text) and defaults from an environment variable.')]
 param(
     [string]$Server = "localhost",
     [string]$User,
