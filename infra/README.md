@@ -38,6 +38,11 @@ required, redirect URIs, admin consent, groups and assignments. With `-AllowAzur
 fails. Entra takes a minute or so to replicate, so a `-Verify` straight after creating objects can fail: run it again.
 Pass the same switches (`-AssignGroups`, `-SupportWebUrl`) as the setup run.
 
+To learn it by hand instead, [docs/azure-lab.md](../docs/azure-lab.md) walks through building the same objects in the
+portal under `-Prefix SyncHubLab`, then checking them with `-Verify -Prefix SyncHubLab`. `-Verify` matches roles and the
+scope by value, because the portal generates its own ids. `-Prefix` only changes display names: role values stay
+`SyncHub.*`, because the Support API checks those exact strings.
+
 **Admin consent needs an admin role.** An ordinary member can register apps and create groups, so the rest of the script
 runs, but granting tenant-wide consent needs Cloud Application Administrator or Global Administrator. Without one, the script
 warns and carries on, and an admin grants it in the portal: Enterprise applications → SyncHub Support Dashboard →

@@ -57,14 +57,17 @@ $azureCliAppId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46"   # Microsoft's well-kno
 $enterpriseAppTag = "WindowsAzureActiveDirectoryIntegratedApp"
 
 # Fixed ids keep app roles and the scope stable across runs (Entra rejects changing a role's id while it's in use).
+# Role values are the API's contract (Roles in SyncHub.SupportApi/Program.cs checks these exact strings), so they never
+# take -Prefix: a second set of apps (e.g. -Prefix SyncHubLab) must issue the same values for the API to accept its tokens.
+# -Prefix only names things: app registrations and groups.
 $roles = @(
-    @{ Value = "$Prefix.Viewer";      Id = "6a1b0c55-6f0e-4b2e-9a51-0d1f2a7c3e01"; Group = "$Prefix Viewers";          Name = "Viewer";       Description = "Read the support dashboard" }
-    @{ Value = "$Prefix.Support";     Id = "6a1b0c55-6f0e-4b2e-9a51-0d1f2a7c3e02"; Group = "$Prefix Support Analysts"; Name = "Support Analyst"; Description = "Fix, replay and ignore integration exceptions" }
-    @{ Value = "$Prefix.DataSteward"; Id = "6a1b0c55-6f0e-4b2e-9a51-0d1f2a7c3e03"; Group = "$Prefix Data Stewards";    Name = "Data Steward"; Description = "Decide duplicate clients and maintain practice-area mappings" }
-    @{ Value = "$Prefix.Admin";       Id = "6a1b0c55-6f0e-4b2e-9a51-0d1f2a7c3e04"; Group = "$Prefix Admins";           Name = "Administrator"; Description = "Everything in the support dashboard" }
+    @{ Value = "SyncHub.Viewer";      Id = "6a1b0c55-6f0e-4b2e-9a51-0d1f2a7c3e01"; Group = "$Prefix Viewers";          Name = "Viewer";       Description = "Read the support dashboard" }
+    @{ Value = "SyncHub.Support";     Id = "6a1b0c55-6f0e-4b2e-9a51-0d1f2a7c3e02"; Group = "$Prefix Support Analysts"; Name = "Support Analyst"; Description = "Fix, replay and ignore integration exceptions" }
+    @{ Value = "SyncHub.DataSteward"; Id = "6a1b0c55-6f0e-4b2e-9a51-0d1f2a7c3e03"; Group = "$Prefix Data Stewards";    Name = "Data Steward"; Description = "Decide duplicate clients and maintain practice-area mappings" }
+    @{ Value = "SyncHub.Admin";       Id = "6a1b0c55-6f0e-4b2e-9a51-0d1f2a7c3e04"; Group = "$Prefix Admins";           Name = "Administrator"; Description = "Everything in the support dashboard" }
 )
 $scopeId = "6a1b0c55-6f0e-4b2e-9a51-0d1f2a7c3e10"
-$adminRole = $roles | Where-Object Value -eq "$Prefix.Admin"
+$adminRole = $roles | Where-Object Value -eq "SyncHub.Admin"
 
 function Invoke-Graph {
     <# Calls Microsoft Graph through az rest. Writes are skipped (and described) under -DryRun and -Verify. #>
@@ -171,14 +174,19 @@ if ($Verify) {
         $apiUri = "api://$($api.appId)"
         Assert-Check "identifier URI is $apiUri" ($api.identifierUris -contains $apiUri)
         Assert-Check "issues v2 access tokens" ($api.api.requestedAccessTokenVersion -eq 2)
-        Assert-Check "exposes the access_as_user scope" (@($api.api.oauth2PermissionScopes |
-            Where-Object { $_.id -eq $scopeId -and $_.value -eq "access_as_user" -and $_.isEnabled }).Count -gt 0)
+        # Matched by value, not by the script's fixed ids: the portal generates its own ids, so this also checks an
+        # app registration built by hand (see docs/azure-lab.md). The ids found are used for the checks below.
+        $scope = $api.api.oauth2PermissionScopes | Where-Object { $_.value -eq "access_as_user" } | Select-Object -First 1
+        Assert-Check "exposes the access_as_user scope (enabled)" ($null -ne $scope -and $scope.isEnabled)
+        $foundScopeId = if ($scope) { $scope.id } else { $scopeId }
         foreach ($role in $roles) {
-            $found = $api.appRoles | Where-Object { $_.id -eq $role.Id } | Select-Object -First 1
-            Assert-Check "app role $($role.Value) (fixed id, enabled)" ($null -ne $found -and $found.value -eq $role.Value -and $found.isEnabled)
+            $found = $api.appRoles | Where-Object { $_.value -eq $role.Value } | Select-Object -First 1
+            Assert-Check "app role $($role.Value) (enabled, assignable to users)" ($null -ne $found -and $found.isEnabled -and
+                $found.allowedMemberTypes -contains "User")
+            $role.FoundId = if ($found) { $found.id } else { $role.Id }
         }
         $cliPreAuthorised = @($api.api.preAuthorizedApplications |
-            Where-Object { $_.appId -eq $azureCliAppId -and $_.delegatedPermissionIds -contains $scopeId }).Count -gt 0
+            Where-Object { $_.appId -eq $azureCliAppId -and $_.delegatedPermissionIds -contains $foundScopeId }).Count -gt 0
         if ($AllowAzureCli) { Assert-Check "Azure CLI pre-authorised for access_as_user" $cliPreAuthorised }
         else { Assert-Check "Azure CLI not pre-authorised (run without -AllowAzureCli)" (-not $cliPreAuthorised) }
 
@@ -197,7 +205,7 @@ if ($Verify) {
         foreach ($url in $SupportWebUrl) { Assert-Check "SPA redirect URI $url" ($spa.spa.redirectUris -contains $url) }
         if ($api) {
             Assert-Check "allowed to call the API (access_as_user)" (@($spa.requiredResourceAccess | Where-Object {
-                $_.resourceAppId -eq $api.appId -and @($_.resourceAccess | Where-Object id -eq $scopeId).Count -gt 0 }).Count -gt 0)
+                $_.resourceAppId -eq $api.appId -and @($_.resourceAccess | Where-Object id -eq $foundScopeId).Count -gt 0 }).Count -gt 0)
         }
         $spaSp = Find-ServicePrincipal $spa.appId
         Assert-Check "enterprise application exists" ($null -ne $spaSp)
@@ -217,7 +225,7 @@ if ($Verify) {
     }
     if ($apiSp) {
         $assigned = @((Invoke-Graph GET "$graph/servicePrincipals/$($apiSp.id)/appRoleAssignedTo").value)
-        $hasRole = { param($PrincipalId, $Role) @($assigned | Where-Object { $_.principalId -eq $PrincipalId -and $_.appRoleId -eq $Role.Id }).Count -gt 0 }
+        $hasRole = { param($PrincipalId, $Role) @($assigned | Where-Object { $_.principalId -eq $PrincipalId -and $_.appRoleId -eq $Role.FoundId }).Count -gt 0 }
         if ($AssignGroups) {
             foreach ($role in $roles) {
                 if ($role.GroupId) { Assert-Check "group '$($role.Group)' has $($role.Value)" (& $hasRole $role.GroupId $role) }

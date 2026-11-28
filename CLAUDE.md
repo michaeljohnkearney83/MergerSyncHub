@@ -33,6 +33,7 @@ keep the "why" comments.
 | `docker/` | `dotnet.Dockerfile` (all four services, `PROJECT` build arg), `web.Dockerfile` (both React apps), `nginx.conf`, `db-init.sh` |
 | `monitoring/` | Collector, Prometheus (+ `alert-rules.yml`), Loki, Alloy (`alloy.alloy`, Faro receiver), Grafana provisioning and `dashboards/synchub.json` |
 | `docs/interview-guide.md` | Maps the project to interview questions; STAR answers |
+| `docs/azure-lab.md` | Hands-on Azure lab for the owner (who does the Azure work by hand): Entra by hand under `-Prefix SyncHubLab`, checked by `-Verify`; Support API against Entra; Bicep what-if/deploy/teardown |
 | `docs/glossary.md` | Plain-English glossary: law-firm terms (client, matter...) and integration terms (dead letter, replay, reconciliation...) |
 | `.claude/agents/sql-reviewer.md` | Read-only subagent that reviews T-SQL and Dapper SQL against the SQL conventions below |
 | `.claude/agents/observability-advisor.md` | Read-only subagent that suggests logs, metrics, alerts and Grafana panels |
@@ -148,6 +149,10 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
   an admin user; Firm B key and token signing key in Key Vault. Don't add SQL logins or connection-string secrets.
 - Telemetry: `AddObservability()` exports to OTLP and/or Application Insights depending on which setting is present
   (`OpenTelemetry:OtlpEndpoint`, `APPLICATIONINSIGHTS_CONNECTION_STRING`).
+- **The owner does the Azure and Entra work by hand, to learn it** (`docs/azure-lab.md`). Write guides, templates and checks,
+  and answer questions, but don't run deployments or create Entra objects unless asked for that specific step.
+- Entra role values are always `SyncHub.*` (the API's contract); `-Prefix` only changes display names. `-Verify` matches
+  roles and the scope by value, so it also checks hand-built objects.
 - **Never deploy (anything that costs money) without the owner's explicit go-ahead and a cost estimate.** The owner's
   only subscription was disabled on 27 Nov 2026, so Azure validation is pending.
 - Azure SQL rejects `CREATE/ALTER DATABASE` and `USE` in scripts: run each script against its own database.
