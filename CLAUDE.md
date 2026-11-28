@@ -173,6 +173,12 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
 - Inside Docker, `localhost` is the container itself. The Support API trusts issuer `http://localhost:5090` but loads
   keys via `Auth:MetadataAddress` (`http://directory-api:8080/...`); the discovery document builds `jwks_uri` from the
   request's host for this reason. React apps get `localhost` URLs at build time, because the browser runs on the host.
+- Entra: the Azure CLI's signed-in account is an ordinary member (no directory roles); the tenant's Global Administrator is
+  the owner's personal Microsoft account (`#EXT#`). So admin consent, audit logs and sign-in logs need the portal signed in
+  as that account. Service principals created through Graph need the `WindowsAzureActiveDirectoryIntegratedApp` tag to show
+  in the portal's Enterprise applications list (the script sets it).
+- `az` is a `.cmd` wrapper on Windows: `&` or parentheses in an `az rest --uri` break in cmd.exe even when URL-encoded.
+  Use one query parameter with an `eq` filter, as `entra-setup.ps1` does.
 - `docker/*.sh` must keep LF line endings (`.gitattributes`); CRLF breaks them in Linux containers.
 
 ## Status and known gaps

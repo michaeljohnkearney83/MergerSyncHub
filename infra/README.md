@@ -38,6 +38,12 @@ required, redirect URIs, admin consent, groups and assignments. With `-AllowAzur
 fails. Entra takes a minute or so to replicate, so a `-Verify` straight after creating objects can fail: run it again.
 Pass the same switches (`-AssignGroups`, `-SupportWebUrl`) as the setup run.
 
+**Admin consent needs an admin role.** An ordinary member can register apps and create groups, so the rest of the script
+runs, but granting tenant-wide consent needs Cloud Application Administrator or Global Administrator. Without one, the script
+warns and carries on, and an admin grants it in the portal: Enterprise applications → SyncHub Support Dashboard →
+Permissions → **Grant admin consent**. `-Verify` reports it until then. In a personal tenant the Global Administrator is
+usually the Microsoft account the tenant was created from, which is not necessarily the account you used for `az login`.
+
 It prints the settings the apps need (`Auth:Authority`, `Auth:Audience`, the dashboard's client id and scope). Using them
 means switching the Support API to Entra (Authority and Audience settings, no code change) and adding MSAL to the dashboard.
 

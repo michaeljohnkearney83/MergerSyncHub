@@ -52,6 +52,9 @@ param(
 $ErrorActionPreference = "Stop"
 $graph = "https://graph.microsoft.com/v1.0"
 $azureCliAppId = "04b07795-8ddb-461a-bbee-02f9e1bf7b46"   # Microsoft's well-known, fixed client id for the Azure CLI
+# The portal tags the service principals it creates with this, and its Enterprise applications list filters on it by
+# default: without it, objects created through Graph only show under "Application type: All applications".
+$enterpriseAppTag = "WindowsAzureActiveDirectoryIntegratedApp"
 
 # Fixed ids keep app roles and the scope stable across runs (Entra rejects changing a role's id while it's in use).
 $roles = @(
@@ -181,7 +184,10 @@ if ($Verify) {
 
         $apiSp = Find-ServicePrincipal $api.appId
         Assert-Check "enterprise application exists" ($null -ne $apiSp)
-        if ($apiSp) { Assert-Check "assignment required (no role, no token)" ($apiSp.appRoleAssignmentRequired -eq $true) }
+        if ($apiSp) {
+            Assert-Check "assignment required (no role, no token)" ($apiSp.appRoleAssignmentRequired -eq $true)
+            Assert-Check "listed under Enterprise applications" ($apiSp.tags -contains $enterpriseAppTag)
+        }
     }
 
     Write-Host "Support Dashboard app registration" -ForegroundColor Cyan
@@ -195,6 +201,7 @@ if ($Verify) {
         }
         $spaSp = Find-ServicePrincipal $spa.appId
         Assert-Check "enterprise application exists" ($null -ne $spaSp)
+        if ($spaSp) { Assert-Check "listed under Enterprise applications" ($spaSp.tags -contains $enterpriseAppTag) }
         if ($spaSp -and $apiSp) {
             $grant = (Invoke-Graph GET "$graph/oauth2PermissionGrants?`$filter=$([uri]::EscapeDataString("clientId eq '$($spaSp.id)'"))").value |
                 Where-Object { $_.resourceId -eq $apiSp.id -and $_.consentType -eq "AllPrincipals" } | Select-Object -First 1
@@ -281,7 +288,8 @@ if ($AllowAzureCli) {
 }
 $apiSp = Get-OrCreateServicePrincipal $api
 # Only users or groups assigned a role can get a token for the API: no role, no access.
-Invoke-Graph PATCH "$graph/servicePrincipals/$($apiSp.id)" @{ appRoleAssignmentRequired = $true } | Out-Null
+Invoke-Graph PATCH "$graph/servicePrincipals/$($apiSp.id)" @{
+    appRoleAssignmentRequired = $true; tags = @($enterpriseAppTag) } | Out-Null
 
 # ---------------------------------------------------------------------------------------------- 2. dashboard
 Write-Host "2. Support Dashboard app registration (single-page app)" -ForegroundColor Cyan
@@ -294,6 +302,7 @@ Invoke-Graph PATCH "$graph/applications/$($spa.id)" @{
     })
 } | Out-Null
 $spaSp = Get-OrCreateServicePrincipal $spa
+Invoke-Graph PATCH "$graph/servicePrincipals/$($spaSp.id)" @{ tags = @($enterpriseAppTag) } | Out-Null
 
 # Admin consent for the dashboard to call the API on users' behalf (so users aren't prompted).
 $existingGrant = if ($spaSp.id -like "<new-*") { $null } else {
@@ -301,9 +310,17 @@ $existingGrant = if ($spaSp.id -like "<new-*") { $null } else {
         Where-Object { $_.resourceId -eq $apiSp.id } | Select-Object -First 1 }
 if (-not $existingGrant) {
     Write-Host "  granting admin consent: dashboard -> API (access_as_user)"
-    Invoke-Graph POST "$graph/oauth2PermissionGrants" @{
-        clientId = $spaSp.id; consentType = "AllPrincipals"; resourceId = $apiSp.id; scope = "access_as_user"
-    } | Out-Null
+    try {
+        Invoke-Graph POST "$graph/oauth2PermissionGrants" @{
+            clientId = $spaSp.id; consentType = "AllPrincipals"; resourceId = $apiSp.id; scope = "access_as_user"
+        } | Out-Null
+    } catch {
+        # The only step that needs an admin role: ordinary members can register apps and (by default) create groups,
+        # but tenant-wide consent needs Cloud Application Administrator or Global Administrator. Don't stop for it:
+        # an admin can grant it with one button, and -Verify reports it until they do.
+        Write-Warning ("Admin consent refused (needs Cloud Application Administrator or Global Administrator). " +
+            "Grant it in the portal: Enterprise applications > $Prefix Support Dashboard > Permissions > Grant admin consent.")
+    }
 } else { Write-Host "  admin consent already granted" }
 
 # ---------------------------------------------------------------------------------------------- 3. groups
