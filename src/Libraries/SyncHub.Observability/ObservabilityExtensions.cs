@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Azure.Monitor.OpenTelemetry.Exporter;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -46,14 +47,21 @@ public static class ObservabilityExtensions
     public static IHostApplicationBuilder AddObservability(
         this IHostApplicationBuilder builder, string serviceName, params string[] extraMeters)
     {
+        // Two destinations, either or both:
+        //   * OTLP to the OpenTelemetry Collector (OpenTelemetry:OtlpEndpoint): Prometheus + Loki locally.
+        //   * Azure Monitor / Application Insights (APPLICATIONINSIGHTS_CONNECTION_STRING): in Azure.
+        // The instrumentation is identical; only the exporter changes, so moving to Azure needs no code changes
+        // in the services themselves.
         var endpoint = builder.Configuration["OpenTelemetry:OtlpEndpoint"];
-        if (string.IsNullOrWhiteSpace(endpoint))
+        var appInsights = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
+        var useOtlp = !string.IsNullOrWhiteSpace(endpoint);
+        var useAzureMonitor = !string.IsNullOrWhiteSpace(appInsights);
+        if (!useOtlp && !useAzureMonitor)
             return builder;
 
-        var otlpEndpoint = new Uri(endpoint);
-        void ConfigureExporter(OtlpExporterOptions o)
+        void ConfigureOtlp(OtlpExporterOptions o)
         {
-            o.Endpoint = otlpEndpoint;
+            o.Endpoint = new Uri(endpoint!);   // non-null: only called when useOtlp, i.e. endpoint is set
             o.Protocol = OtlpExportProtocol.Grpc;
             o.TimeoutMilliseconds = 5000;
         }
@@ -62,24 +70,29 @@ public static class ObservabilityExtensions
             .ConfigureResource(r => r
                 .AddService(serviceName, serviceVersion: typeof(ObservabilityExtensions).Assembly.GetName().Version?.ToString())
                 .AddAttributes([new("deployment.environment.name", builder.Environment.EnvironmentName)]))
-            .WithMetrics(m => m
-                .AddMeter(PlatformMeters)
-                .AddMeter(extraMeters)
-                .AddOtlpExporter((exporter, reader) =>
-                {
-                    ConfigureExporter(exporter);
-                    // 15s matches the Prometheus scrape interval.
-                    reader.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = 15_000;
-                }));
+            .WithMetrics(m =>
+            {
+                m.AddMeter(PlatformMeters).AddMeter(extraMeters);
+                if (useOtlp)
+                    m.AddOtlpExporter((exporter, reader) =>
+                    {
+                        ConfigureOtlp(exporter);
+                        // 15s matches the Prometheus scrape interval.
+                        reader.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = 15_000;
+                    });
+                if (useAzureMonitor)
+                    m.AddAzureMonitorMetricExporter(o => o.ConnectionString = appInsights);
+            });
 
-        // Logs: scopes become attributes, so Source and CorrelationId from the worker's
-        // BeginScope arrive in Loki as structured metadata you can filter on.
+        // Logs: scopes become attributes, so Source and CorrelationId from the worker's BeginScope arrive
+        // in Loki as structured metadata, and in Application Insights as custom dimensions.
         builder.Logging.AddOpenTelemetry(o =>
         {
             o.IncludeScopes = true;
             o.IncludeFormattedMessage = true;
             o.ParseStateValues = true;
-            o.AddOtlpExporter(ConfigureExporter);
+            if (useOtlp) o.AddOtlpExporter(ConfigureOtlp);
+            if (useAzureMonitor) o.AddAzureMonitorLogExporter(a => a.ConnectionString = appInsights);
         });
 
         return builder;
