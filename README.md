@@ -32,7 +32,7 @@ failures, correct bad records, replay them, review duplicates and fix mappings, 
 | [Versions](#versions) | [Create the databases](#1-create-the-databases) | [Git hooks](#5-git-hooks-for-feature-branches-optional) |
 | [Architecture](#architecture) | [Run the tests](#2-run-the-tests) | [Design decisions](#design-decisions-the-why) |
 | [What's in the repo](#whats-in-the-repo) | [Start everything (Docker or by hand)](#3-start-everything) | [Data lifetimes](#data-lifetimes) · [Known limitations](#known-limitations-and-what-id-do-next) |
-| [Full glossary](docs/glossary.md) · [Azure design](docs/azure-architecture.md) | [Sign in (demo accounts)](#4-sign-in) | [Interview guide](docs/interview-guide.md) |
+| [Full glossary](docs/glossary.md) · [Azure design](docs/azure-architecture.md) · [Azure lab](docs/azure-lab.md) | [Sign in (demo accounts)](#4-sign-in) | [Interview guide](docs/interview-guide.md) |
 | | [10-minute demo](#a-10-minute-demo) | |
 
 ### Key terms
