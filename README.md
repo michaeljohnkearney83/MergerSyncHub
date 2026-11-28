@@ -1,5 +1,6 @@
 # Merger Sync Hub
 
+[![CI](https://github.com/michaeljohnkearney83/MergerSyncHub/actions/workflows/ci.yml/badge.svg)](https://github.com/michaeljohnkearney83/MergerSyncHub/actions/workflows/ci.yml)
 ![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)
 ![C#](https://img.shields.io/badge/C%23-latest-239120?logo=csharp&logoColor=white)
 ![SQL Server 2022](https://img.shields.io/badge/SQL%20Server-2022-CC2927?logo=microsoftsqlserver&logoColor=white)
@@ -8,7 +9,7 @@
 ![Docker](https://img.shields.io/badge/Docker-compose-2496ED?logo=docker&logoColor=white)
 ![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-1.21-000000?logo=opentelemetry&logoColor=white)
 ![Grafana 12](https://img.shields.io/badge/Grafana-12-F46800?logo=grafana&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-65%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-69%20passing-brightgreen)
 
 A working model of a problem every merged law firm faces: **two practice management systems, one firm.**
 
@@ -222,6 +223,16 @@ The integration tests start a throwaway SQL Server container (Testcontainers) wi
 procedures, and host the real Support API in memory (`WebApplicationFactory`). Only the token signing key is
 swapped for a test key, so every other part of token validation runs exactly as in production. The first run
 takes about 20 seconds while SQL Server starts.
+
+**Continuous integration** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every push to `main` or a
+`feature/*` branch and on pull requests. It has four parallel jobs: the .NET build (warnings are errors) and unit tests;
+the integration tests (GitHub's Linux runners have Docker); a type-check and build of both React apps; and lint for the
+Bicep templates and the PowerShell scripts (PSScriptAnalyzer, rules in `PSScriptAnalyzerSettings.psd1`). It needs no
+secrets and never signs in to Azure. To lint the scripts locally:
+
+```powershell
+Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object { Invoke-ScriptAnalyzer -Path $_.FullName -Settings .\PSScriptAnalyzerSettings.psd1 }
+```
 
 ### 3. Start everything
 

@@ -64,6 +64,14 @@ Each rule is **[B] Blocking** (the push fails) or **[A] Advisory** (reported, pu
 - [A] US spelling in UI text, comments or docs (`color`, `normalize`, `initialize`): the project uses UK English.
 - [A] New behaviour without tests where `tests/SyncHub.Tests` covers the area (mappers, matching, time conversion).
 
+### PowerShell and CI (`*.ps1`, `.github/workflows/`, `PSScriptAnalyzerSettings.psd1`)
+- [B] A rule added to `ExcludeRules` in `PSScriptAnalyzerSettings.psd1` to silence one script: suppress it on that
+  parameter or function with `SuppressMessageAttribute` and a `Justification` instead.
+- [B] A workflow that widens `permissions` beyond `contents: read` or uses a stored Azure credential (CI uses none;
+  deployment would use OIDC federation).
+- [A] A change likely to add a compiler warning (CI builds with `TreatWarningsAsErrors`), or a `SuppressMessageAttribute`
+  with no `Justification`.
+
 ## Output format
 
 Keep it short; it is printed in a terminal during `git push`.

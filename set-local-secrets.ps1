@@ -13,6 +13,8 @@
     Check what's stored:
         dotnet user-secrets list --project src/Services/SyncHub.Worker
 #>
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingPlainTextForPassword', 'Password',
+    Justification = 'The local Docker sa password goes into a plain-text connection string in user secrets; a SecureString would be converted straight back.')]
 param(
     [string]$Server = "localhost,14333",
     [string]$User = "sa",
@@ -21,8 +23,12 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# The part every connection string shares; Conn adds the database and an Application Name (which shows in
+# sys.dm_exec_sessions and Query Store, so you can tell the worker's queries from the API's).
+$serverAndLogin = "Server=$Server;User Id=$User;Password=$Password;TrustServerCertificate=True"
+
 function Conn([string]$database, [string]$app, [string]$extra = "") {
-    "Server=$Server;Database=$database;User Id=$User;Password=$Password;TrustServerCertificate=True;Application Name=$app$extra"
+    "$serverAndLogin;Database=$database;Application Name=$app$extra"
 }
 
 $secrets = @(

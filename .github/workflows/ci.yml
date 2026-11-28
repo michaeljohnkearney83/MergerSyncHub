@@ -1,0 +1,133 @@
+# Continuous integration: every push to main or a feature branch, and every pull request into main.
+# Four independent jobs run in parallel, so one failure doesn't hide another:
+#   dotnet       build (warnings are errors) + unit tests
+#   integration  the same build + integration tests against a real SQL Server (Testcontainers, Docker on the runner)
+#   web          type-check and build both React apps
+#   infra        lint the Bicep templates and the PowerShell scripts
+# Nothing here signs in to Azure or needs a secret. Deploying would be a separate workflow with OIDC federation
+# (no stored credential) and an approval gate; see docs/azure-architecture.md.
+name: CI
+
+on:
+  push:
+    branches: [main, 'feature/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only token: CI only checks out code.
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the run it supersedes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  dotnet:
+    name: .NET build and unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore
+        run: dotnet restore src/MergerSyncHub.sln
+      # The build has no warnings; treating them as errors keeps it that way, including malformed /// docs and
+      # NuGet audit warnings (a newly published vulnerability in a package fails the build, on purpose).
+      - name: Build
+        run: dotnet build src/MergerSyncHub.sln -c Release --no-restore -p:TreatWarningsAsErrors=true
+      - name: Unit tests
+        run: >
+          dotnet test tests/SyncHub.Tests -c Release --no-build
+          --logger "trx;LogFileName=unit.trx" --results-directory TestResults
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: unit-test-results
+          path: TestResults/*.trx
+          if-no-files-found: ignore
+
+  integration:
+    name: Integration tests (SQL Server in Docker)
+    runs-on: ubuntu-latest   # Linux runners have Docker, which Testcontainers needs
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - name: Build
+        run: dotnet build tests/SyncHub.IntegrationTests -c Release
+      # One SQL Server container for the whole run; each test isolates itself (SqlServerFixture.NewSource()).
+      - name: Integration tests
+        run: >
+          dotnet test tests/SyncHub.IntegrationTests -c Release --no-build
+          --logger "trx;LogFileName=integration.trx" --results-directory TestResults
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: integration-test-results
+          path: TestResults/*.trx
+          if-no-files-found: ignore
+
+  web:
+    name: React build (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false   # a failure in one app still shows whether the other builds
+      matrix:
+        app: [dashboard, directory-admin]
+    defaults:
+      run:
+        working-directory: ${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22   # same as docker/web.Dockerfile
+          cache: npm
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+      - name: Install (exact versions from the lock file)
+        run: npm ci
+      - name: Type-check and build
+        run: npm run build   # tsc && vite build
+
+  infra:
+    name: Bicep and PowerShell lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      # Lint also compiles, so a template that wouldn't build fails here. No Azure sign-in: this checks the
+      # templates only. what-if (which needs a subscription) belongs in the deployment workflow.
+      - name: Bicep lint
+        run: |
+          az bicep install
+          for f in infra/main.bicep infra/resources.bicep; do
+            echo "::group::$f"
+            az bicep lint --file "$f"
+            echo "::endgroup::"
+          done
+      - name: PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          if (-not (Get-Module -ListAvailable PSScriptAnalyzer)) {
+            Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
+          }
+          $results = git ls-files '*.ps1' | ForEach-Object {
+            Invoke-ScriptAnalyzer -Path $_ -Settings ./PSScriptAnalyzerSettings.psd1
+          }
+          $results | Format-Table ScriptName, Line, RuleName, Message -AutoSize -Wrap
+          if ($results) { throw "PSScriptAnalyzer: $(@($results).Count) finding(s)" }
+          "PSScriptAnalyzer: no findings"

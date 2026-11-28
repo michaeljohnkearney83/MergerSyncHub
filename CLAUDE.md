@@ -38,6 +38,8 @@ keep the "why" comments.
 | `.claude/agents/observability-advisor.md` | Read-only subagent that suggests logs, metrics, alerts and Grafana panels |
 | `.claude/agents/coding-standards.md` | Read-only gate agent (Sonnet): blocking/advisory rules, last line `VERDICT: PASS` or `VERDICT: FAIL` |
 | `.githooks/pre-push` | Runs `claude -p --agent coding-standards` on pushes to `feature/*`; enable with `git config core.hooksPath .githooks` |
+| `.github/workflows/ci.yml` | CI on push to `main`/`feature/**` and PRs: .NET build (warnings as errors) + unit tests, integration tests, both React builds, Bicep lint, PSScriptAnalyzer. No secrets, no Azure sign-in |
+| `PSScriptAnalyzerSettings.psd1` | PowerShell lint rules (Write-Host allowed); per-parameter exceptions are `SuppressMessageAttribute`s with a justification in the script |
 | `.githooks/post-commit` | Merges `origin/main` (or local `main`) into `feature/*` after each commit; aborts cleanly on conflict |
 
 **Solution layout:** projects are grouped on disk and in `src/MergerSyncHub.sln` (matching solution folders):
@@ -133,6 +135,9 @@ To add one script, run it alone: `sqlcmd -S "localhost,14333" -U sa -P '<pw>' -C
   automatically: law-firm records follow a retention policy, not IT. Databases use SIMPLE recovery (set in 01/06);
   production would use FULL with log backups. `rpt.DimDate` is rolling (`rpt.usp_ExtendDimDate`, called by every load):
   don't reintroduce a fixed end date.
+- **CI must stay green:** the .NET build has no warnings (CI treats them as errors), and every `.ps1` passes
+  PSScriptAnalyzer with `PSScriptAnalyzerSettings.psd1`. Suppress a rule for one parameter with
+  `[Diagnostics.CodeAnalysis.SuppressMessageAttribute(..., Justification = '...')]`, never by adding it to the settings file.
 - **UK English** in UI text and docs. Keep comments that explain trade-offs.
 
 ## Azure
